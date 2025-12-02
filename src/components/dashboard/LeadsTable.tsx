@@ -1,0 +1,172 @@
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Lead, getPerformanceColor, getPerformanceLabel } from "@/lib/mockData";
+import { ArrowUpDown, FileText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+interface LeadsTableProps {
+  leads: Lead[];
+}
+
+type SortField = "lead_name" | "sdr_name" | "entered_at" | "sla_minutes";
+
+export const LeadsTable = ({ leads }: LeadsTableProps) => {
+  const [sortField, setSortField] = useState<SortField>("entered_at");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedLeads = [...leads].sort((a, b) => {
+    let aValue: any = a[sortField];
+    let bValue: any = b[sortField];
+
+    if (sortField === "entered_at") {
+      aValue = new Date(aValue).getTime();
+      bValue = new Date(bValue).getTime();
+    }
+
+    if (aValue === null) return 1;
+    if (bValue === null) return -1;
+
+    if (sortDirection === "asc") {
+      return aValue > bValue ? 1 : -1;
+    } else {
+      return aValue < bValue ? 1 : -1;
+    }
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          Detalhamento de Leads
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSort("lead_name")}
+                    className="font-semibold"
+                  >
+                    Lead
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSort("sdr_name")}
+                    className="font-semibold"
+                  >
+                    SDR
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSort("entered_at")}
+                    className="font-semibold"
+                  >
+                    Entrada
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>Atendimento</TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSort("sla_minutes")}
+                    className="font-semibold"
+                  >
+                    Tempo (min)
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>Origem</TableHead>
+                <TableHead>Pipeline</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedLeads.slice(0, 20).map((lead, index) => {
+                const colorClass = lead.sla_minutes
+                  ? getPerformanceColor(lead.sla_minutes)
+                  : "muted";
+                const label = lead.sla_minutes
+                  ? getPerformanceLabel(lead.sla_minutes)
+                  : "Pendente";
+
+                const getBadgeVariant = () => {
+                  if (colorClass === "success") return "success";
+                  if (colorClass === "warning") return "warning";
+                  if (colorClass === "danger") return "danger";
+                  return "secondary";
+                };
+
+                return (
+                  <TableRow key={lead.lead_id} className={index % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                    <TableCell className="font-medium">{lead.lead_name}</TableCell>
+                    <TableCell>{lead.sdr_name}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDate(lead.entered_at)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {lead.attended_at ? formatDate(lead.attended_at) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getBadgeVariant()}>
+                        {lead.sla_minutes ? `${lead.sla_minutes}min - ${label}` : "Pendente"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm">{lead.source}</TableCell>
+                    <TableCell className="text-sm">{lead.pipeline}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <p className="text-sm text-muted-foreground mt-4">
+          Mostrando 20 de {leads.length} leads
+        </p>
+      </CardContent>
+    </Card>
+  );
+};
