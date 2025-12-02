@@ -48,8 +48,8 @@ export const generateMockLeads = (count: number = 100): Lead[] => {
     
     if (hasAttended) {
       const enteredTime = new Date(enteredDate).getTime();
-      // Tempo de atendimento varia de 5 minutos a 4 horas
-      const delayMinutes = Math.floor(Math.random() * 235) + 5;
+      // Tempo de atendimento varia de 5 a 30 minutos
+      const delayMinutes = Math.floor(Math.random() * 26) + 5;
       attendedDate = new Date(enteredTime + delayMinutes * 60000).toISOString();
       slaMinutes = delayMinutes;
     }
