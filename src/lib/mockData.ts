@@ -93,13 +93,11 @@ export const calculateSDRPerformance = (leads: Lead[]): SDRPerformance[] => {
 };
 
 export const getPerformanceColor = (minutes: number): string => {
-  if (minutes <= 30) return "success";
-  if (minutes <= 60) return "warning";
+  if (minutes < 20) return "success";
   return "danger";
 };
 
 export const getPerformanceLabel = (minutes: number): string => {
-  if (minutes <= 30) return "Rápido";
-  if (minutes <= 60) return "Aceitável";
+  if (minutes < 20) return "Rápido";
   return "Lento";
 };
