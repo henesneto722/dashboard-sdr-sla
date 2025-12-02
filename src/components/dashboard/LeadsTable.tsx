@@ -120,8 +120,6 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
-                <TableHead>Origem</TableHead>
-                <TableHead>Pipeline</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -155,8 +153,6 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                         {lead.sla_minutes ? `${lead.sla_minutes}min - ${label}` : "Pendente"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm">{lead.source}</TableCell>
-                    <TableCell className="text-sm">{lead.pipeline}</TableCell>
                   </TableRow>
                 );
               })}

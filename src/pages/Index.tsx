@@ -13,8 +13,6 @@ const Index = () => {
   
   const [selectedPeriod, setSelectedPeriod] = useState("all");
   const [selectedSDR, setSelectedSDR] = useState("all");
-  const [selectedSource, setSelectedSource] = useState("all");
-  const [selectedPipeline, setSelectedPipeline] = useState("all");
 
   const filteredLeads = useMemo(() => {
     let filtered = [...allLeads];
@@ -42,24 +40,12 @@ const Index = () => {
       filtered = filtered.filter((lead) => lead.sdr_name === selectedSDR);
     }
 
-    // Filtro de origem
-    if (selectedSource !== "all") {
-      filtered = filtered.filter((lead) => lead.source === selectedSource);
-    }
-
-    // Filtro de pipeline
-    if (selectedPipeline !== "all") {
-      filtered = filtered.filter((lead) => lead.pipeline === selectedPipeline);
-    }
-
     return filtered;
-  }, [allLeads, selectedPeriod, selectedSDR, selectedSource, selectedPipeline]);
+  }, [allLeads, selectedPeriod, selectedSDR]);
 
   const sdrPerformance = useMemo(() => calculateSDRPerformance(filteredLeads), [filteredLeads]);
 
   const uniqueSDRs = useMemo(() => Array.from(new Set(allLeads.map((l) => l.sdr_name))), [allLeads]);
-  const uniqueSources = useMemo(() => Array.from(new Set(allLeads.map((l) => l.source))), [allLeads]);
-  const uniquePipelines = useMemo(() => Array.from(new Set(allLeads.map((l) => l.pipeline))), [allLeads]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -83,13 +69,7 @@ const Index = () => {
           onPeriodChange={setSelectedPeriod}
           selectedSDR={selectedSDR}
           onSDRChange={setSelectedSDR}
-          selectedSource={selectedSource}
-          onSourceChange={setSelectedSource}
-          selectedPipeline={selectedPipeline}
-          onPipelineChange={setSelectedPipeline}
           sdrs={uniqueSDRs}
-          sources={uniqueSources}
-          pipelines={uniquePipelines}
         />
 
         <StatsCards leads={filteredLeads} sdrPerformance={sdrPerformance} />
