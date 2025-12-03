@@ -34,7 +34,7 @@ const Index = () => {
         ]);
         
         setAllLeads(leadsData || []);
-        setSDRs(sdrsData?.map(s => s.sdr_name) || []);
+        setSDRs(sdrsData?.map((s: { sdr_id: string; sdr_name: string }) => s.sdr_name) || []);
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
         setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
@@ -64,7 +64,7 @@ const Index = () => {
   const sdrPerformance = useMemo(() => calculateSDRPerformance(filteredLeads), [filteredLeads]);
 
   // Lista única de SDRs
-  const uniqueSDRs = useMemo(() => {
+  const uniqueSDRs = useMemo((): string[] => {
     if (sdrs.length > 0) return sdrs;
     return Array.from(new Set(allLeads.map((l) => l.sdr_name)));
   }, [allLeads, sdrs]);
@@ -91,7 +91,7 @@ const Index = () => {
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
             <p className="text-destructive font-medium">{error}</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Execute o backend com: <code className="bg-muted px-2 py-1 rounded">cd backend && npm run dev</code>
+              Execute o backend com: <code className="bg-muted px-2 py-1 rounded">cd backend &amp;&amp; npm run dev</code>
             </p>
           </div>
         )}
