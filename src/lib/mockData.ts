@@ -1,3 +1,8 @@
+/**
+ * Tipos e funções utilitárias para o Dashboard de SLA
+ * Sem dados de exemplo - pronto para consumir API real
+ */
+
 export interface Lead {
   lead_id: string;
   lead_name: string;
@@ -17,59 +22,9 @@ export interface SDRPerformance {
   leads_attended: number;
 }
 
-const sdrs = [
-  { id: "sdr1", name: "Ana Silva" },
-  { id: "sdr2", name: "Carlos Santos" },
-  { id: "sdr3", name: "Mariana Costa" },
-  { id: "sdr4", name: "Pedro Oliveira" },
-  { id: "sdr5", name: "Julia Ferreira" },
-];
-
-const sources = ["Website", "LinkedIn", "Indicação", "Email Marketing", "Cold Call"];
-const pipelines = ["Vendas B2B", "Vendas B2C", "Parcerias", "Enterprise"];
-
-const generateRandomDate = (daysAgo: number) => {
-  const date = new Date();
-  date.setDate(date.getDate() - daysAgo);
-  date.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60), 0, 0);
-  return date.toISOString();
-};
-
-export const generateMockLeads = (count: number = 100): Lead[] => {
-  const leads: Lead[] = [];
-  
-  for (let i = 0; i < count; i++) {
-    const sdr = sdrs[Math.floor(Math.random() * sdrs.length)];
-    const enteredDate = generateRandomDate(Math.floor(Math.random() * 30));
-    const hasAttended = Math.random() > 0.1; // 90% são atendidos
-    
-    let attendedDate: string | null = null;
-    let slaMinutes: number | null = null;
-    
-    if (hasAttended) {
-      const enteredTime = new Date(enteredDate).getTime();
-      // Tempo de atendimento varia de 5 a 30 minutos
-      const delayMinutes = Math.floor(Math.random() * 26) + 5;
-      attendedDate = new Date(enteredTime + delayMinutes * 60000).toISOString();
-      slaMinutes = delayMinutes;
-    }
-    
-    leads.push({
-      lead_id: `lead${i + 1}`,
-      lead_name: `Lead ${i + 1}`,
-      sdr_id: sdr.id,
-      sdr_name: sdr.name,
-      entered_at: enteredDate,
-      attended_at: attendedDate,
-      sla_minutes: slaMinutes,
-      source: sources[Math.floor(Math.random() * sources.length)],
-      pipeline: pipelines[Math.floor(Math.random() * pipelines.length)],
-    });
-  }
-  
-  return leads.sort((a, b) => new Date(b.entered_at).getTime() - new Date(a.entered_at).getTime());
-};
-
+/**
+ * Calcula a performance de cada SDR baseado nos leads
+ */
 export const calculateSDRPerformance = (leads: Lead[]): SDRPerformance[] => {
   const sdrMap = new Map<string, { total: number; count: number; name: string }>();
   
@@ -86,17 +41,23 @@ export const calculateSDRPerformance = (leads: Lead[]): SDRPerformance[] => {
     .map(([sdr_id, data]) => ({
       sdr_id,
       sdr_name: data.name,
-      average_time: Math.round(data.total / data.count),
+      average_time: data.count > 0 ? Math.round(data.total / data.count) : 0,
       leads_attended: data.count,
     }))
     .sort((a, b) => a.average_time - b.average_time);
 };
 
+/**
+ * Retorna a cor de performance baseada no tempo em minutos
+ */
 export const getPerformanceColor = (minutes: number): string => {
   if (minutes < 20) return "success";
   return "danger";
 };
 
+/**
+ * Retorna o label de performance baseado no tempo em minutos
+ */
 export const getPerformanceLabel = (minutes: number): string => {
   if (minutes < 20) return "Rápido";
   return "Lento";

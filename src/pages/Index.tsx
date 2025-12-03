@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
-import { generateMockLeads, calculateSDRPerformance, Lead } from "@/lib/mockData";
+import { useState, useMemo, useEffect } from "react";
+import { calculateSDRPerformance, Lead } from "@/lib/mockData";
+import { fetchLeads, fetchSDRs } from "@/lib/api";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { SDRRanking } from "@/components/dashboard/SDRRanking";
 import { LeadsTable } from "@/components/dashboard/LeadsTable";
@@ -7,46 +8,66 @@ import { PerformanceCharts } from "@/components/dashboard/PerformanceCharts";
 import { Timeline } from "@/components/dashboard/Timeline";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
-import { Activity } from "lucide-react";
+import { Activity, Loader2 } from "lucide-react";
 
 const Index = () => {
-  const allLeads = useMemo(() => generateMockLeads(150), []);
-  
-  const [selectedPeriod, setSelectedPeriod] = useState("all");
+  // Estado dos dados
+  const [allLeads, setAllLeads] = useState<Lead[]>([]);
+  const [sdrs, setSDRs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Filtros
+  const [selectedPeriod, setSelectedPeriod] = useState("30days");
   const [selectedSDR, setSelectedSDR] = useState("all");
 
+  // Carregar dados da API
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const [leadsData, sdrsData] = await Promise.all([
+          fetchLeads({ period: selectedPeriod, sdr_id: selectedSDR !== 'all' ? selectedSDR : undefined }),
+          fetchSDRs()
+        ]);
+        
+        setAllLeads(leadsData || []);
+        setSDRs(sdrsData?.map(s => s.sdr_name) || []);
+      } catch (err) {
+        console.error('Erro ao carregar dados:', err);
+        setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
+        setAllLeads([]);
+        setSDRs([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [selectedPeriod, selectedSDR]);
+
+  // Filtrar leads localmente (caso necessário)
   const filteredLeads = useMemo(() => {
     let filtered = [...allLeads];
 
-    // Filtro de período
-    if (selectedPeriod !== "all") {
-      const now = new Date();
-      const daysMap: Record<string, number> = {
-        today: 0,
-        "7days": 7,
-        "15days": 15,
-        "30days": 30,
-      };
-      const days = daysMap[selectedPeriod];
-      filtered = filtered.filter((lead) => {
-        const leadDate = new Date(lead.entered_at);
-        const diffTime = Math.abs(now.getTime() - leadDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return days === 0 ? leadDate.toDateString() === now.toDateString() : diffDays <= days;
-      });
-    }
-
-    // Filtro de SDR
+    // Filtro de SDR (caso não tenha sido aplicado na API)
     if (selectedSDR !== "all") {
       filtered = filtered.filter((lead) => lead.sdr_name === selectedSDR);
     }
 
     return filtered;
-  }, [allLeads, selectedPeriod, selectedSDR]);
+  }, [allLeads, selectedSDR]);
 
+  // Calcular performance dos SDRs
   const sdrPerformance = useMemo(() => calculateSDRPerformance(filteredLeads), [filteredLeads]);
 
-  const uniqueSDRs = useMemo(() => Array.from(new Set(allLeads.map((l) => l.sdr_name))), [allLeads]);
+  // Lista única de SDRs
+  const uniqueSDRs = useMemo(() => {
+    if (sdrs.length > 0) return sdrs;
+    return Array.from(new Set(allLeads.map((l) => l.sdr_name)));
+  }, [allLeads, sdrs]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -65,25 +86,60 @@ const Index = () => {
       </header>
 
       <main className="container mx-auto px-6 py-8">
-        <DashboardFilters
-          selectedPeriod={selectedPeriod}
-          onPeriodChange={setSelectedPeriod}
-          selectedSDR={selectedSDR}
-          onSDRChange={setSelectedSDR}
-          sdrs={uniqueSDRs}
-        />
+        {/* Mensagem de erro */}
+        {error && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <p className="text-destructive font-medium">{error}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Execute o backend com: <code className="bg-muted px-2 py-1 rounded">cd backend && npm run dev</code>
+            </p>
+          </div>
+        )}
 
-        <StatsCards leads={filteredLeads} sdrPerformance={sdrPerformance} />
-        
-        <SDRRanking sdrPerformance={sdrPerformance} />
-        
-        <PerformanceCharts leads={filteredLeads} />
-        
-        <HourlyPerformance leads={allLeads} />
-        
-        <Timeline leads={filteredLeads} />
-        
-        <LeadsTable leads={filteredLeads} />
+        {/* Loading */}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-3 text-muted-foreground">Carregando dados...</span>
+          </div>
+        )}
+
+        {/* Conteúdo */}
+        {!loading && (
+          <>
+            <DashboardFilters
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={setSelectedPeriod}
+              selectedSDR={selectedSDR}
+              onSDRChange={setSelectedSDR}
+              sdrs={uniqueSDRs}
+            />
+
+            {allLeads.length === 0 && !error ? (
+              <div className="text-center py-12">
+                <Activity className="h-16 w-16 text-muted-foreground/30 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground">Nenhum dado disponível</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Configure o Supabase e aguarde os leads serem registrados via webhook do Pipedrive.
+                </p>
+              </div>
+            ) : (
+              <>
+                <StatsCards leads={filteredLeads} sdrPerformance={sdrPerformance} />
+                
+                <SDRRanking sdrPerformance={sdrPerformance} />
+                
+                <PerformanceCharts leads={filteredLeads} />
+                
+                <HourlyPerformance leads={allLeads} />
+                
+                <Timeline leads={filteredLeads} />
+                
+                <LeadsTable leads={filteredLeads} />
+              </>
+            )}
+          </>
+        )}
       </main>
     </div>
   );
