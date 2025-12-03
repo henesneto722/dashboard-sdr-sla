@@ -5,7 +5,7 @@
 import { Lead, SDRPerformance } from './mockData';
 
 // URL base da API (configurável via variável de ambiente)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://lead-speed-monitor-production.up.railway.app';
 
 /**
  * Interface de resposta padrão da API
