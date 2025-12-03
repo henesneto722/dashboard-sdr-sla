@@ -6,6 +6,7 @@ import { LeadsTable } from "@/components/dashboard/LeadsTable";
 import { PerformanceCharts } from "@/components/dashboard/PerformanceCharts";
 import { Timeline } from "@/components/dashboard/Timeline";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
+import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
 import { Activity } from "lucide-react";
 
 const Index = () => {
@@ -77,6 +78,8 @@ const Index = () => {
         <SDRRanking sdrPerformance={sdrPerformance} />
         
         <PerformanceCharts leads={filteredLeads} />
+        
+        <HourlyPerformance leads={allLeads} />
         
         <Timeline leads={filteredLeads} />
         
