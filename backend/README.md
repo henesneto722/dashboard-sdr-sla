@@ -147,3 +147,5 @@ A tabela principal `leads_sla` contém:
 | source | VARCHAR | Origem do lead |
 | pipeline | VARCHAR | Pipeline |
 
+
+

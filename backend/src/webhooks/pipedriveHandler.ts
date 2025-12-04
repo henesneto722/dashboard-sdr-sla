@@ -4,7 +4,6 @@
  */
 
 import { Request, Response } from 'express';
-import { PipedriveWebhookPayload, PipedriveDeal } from '../types/index.js';
 import { createLead, attendLead, findLeadByPipedriveId } from '../services/leadsService.js';
 
 /**
@@ -12,47 +11,59 @@ import { createLead, attendLead, findLeadByPipedriveId } from '../services/leads
  */
 export async function handlePipedriveWebhook(req: Request, res: Response): Promise<void> {
   try {
-    const payload = req.body as PipedriveWebhookPayload;
+    const payload = req.body;
     
-    // Validação básica do payload
-    if (!payload || !payload.meta) {
-      res.status(400).json({ 
-        success: false, 
-        error: 'Payload inválido' 
-      });
-      return;
+    // Log do payload completo para debug
+    console.log('📥 Webhook recebido - Payload:', JSON.stringify(payload, null, 2));
+
+    // Tentar extrair dados de diferentes formatos do Pipedrive
+    let action = payload.meta?.action || payload.event || payload.action;
+    let dealData = payload.current || payload.data || payload;
+    
+    // Se o deal está dentro de 'data'
+    if (payload.data?.current) {
+      dealData = payload.data.current;
     }
+    
+    // Extrair ID do deal de diferentes lugares
+    const dealId = dealData?.id || payload.id || payload.deal_id;
+    const dealTitle = dealData?.title || dealData?.name || payload.title || `Lead #${dealId}`;
+    const addTime = dealData?.add_time || dealData?.created_at || new Date().toISOString();
+    const pipelineId = dealData?.pipeline_id || payload.pipeline_id || 'Default';
+    const userId = dealData?.user_id || dealData?.owner_id || payload.user_id;
+    const ownerName = dealData?.owner_name || dealData?.user_name || 'SDR';
+    const stageId = dealData?.stage_id || payload.stage_id;
+    const updateTime = dealData?.update_time || dealData?.updated_at || new Date().toISOString();
 
-    const { action } = payload.meta;
-    const currentDeal = payload.current;
+    console.log(`📥 Webhook processado: action=${action}, deal_id=${dealId}, title=${dealTitle}`);
 
-    console.log(`📥 Webhook recebido: action=${action}, deal_id=${currentDeal?.id}`);
-
-    // Ignorar se não houver deal atual
-    if (!currentDeal) {
+    // Validação básica
+    if (!dealId) {
+      console.log('⚠️ Webhook sem deal_id válido');
       res.status(200).json({ 
         success: true, 
-        message: 'Nenhum deal para processar' 
+        message: 'Webhook recebido mas sem deal_id válido' 
       });
       return;
     }
 
+    // Normalizar ação
+    const normalizedAction = normalizeAction(action);
+    console.log(`📥 Ação normalizada: ${normalizedAction}`);
+
     // Processar com base na ação
-    switch (action) {
+    switch (normalizedAction) {
       case 'added':
-        await handleDealAdded(currentDeal, res);
+        await handleDealAdded(dealId, dealTitle, addTime, pipelineId, res);
         break;
 
       case 'updated':
-        await handleDealUpdated(currentDeal, payload.previous, res);
+        await handleDealUpdated(dealId, dealTitle, addTime, pipelineId, userId, ownerName, stageId, updateTime, res);
         break;
 
       default:
-        console.log(`Ação ${action} ignorada`);
-        res.status(200).json({ 
-          success: true, 
-          message: `Ação ${action} ignorada` 
-        });
+        console.log(`Ação ${action} (${normalizedAction}) - criando lead por padrão`);
+        await handleDealAdded(dealId, dealTitle, addTime, pipelineId, res);
     }
   } catch (error) {
     console.error('❌ Erro ao processar webhook:', error);
@@ -64,14 +75,43 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
 }
 
 /**
+ * Normaliza diferentes nomes de ação para um padrão
+ */
+function normalizeAction(action: string | undefined): string {
+  if (!action) return 'added';
+  
+  const actionLower = action.toLowerCase();
+  
+  if (actionLower.includes('add') || actionLower.includes('create') || actionLower.includes('new')) {
+    return 'added';
+  }
+  if (actionLower.includes('update') || actionLower.includes('change') || actionLower.includes('edit')) {
+    return 'updated';
+  }
+  if (actionLower.includes('delete') || actionLower.includes('remove')) {
+    return 'deleted';
+  }
+  
+  return 'added'; // Default para criar o lead
+}
+
+/**
  * Fluxo A: Entrada de Lead - Deal criado
  */
-async function handleDealAdded(deal: PipedriveDeal, res: Response): Promise<void> {
+async function handleDealAdded(
+  dealId: string | number,
+  dealTitle: string,
+  addTime: string,
+  pipelineId: string | number,
+  res: Response
+): Promise<void> {
   try {
+    const dealIdStr = dealId.toString();
+    
     // Verificar se já existe (idempotência)
-    const existing = await findLeadByPipedriveId(deal.id.toString());
+    const existing = await findLeadByPipedriveId(dealIdStr);
     if (existing) {
-      console.log(`Lead ${deal.id} já existe. Ignorando criação.`);
+      console.log(`Lead ${dealIdStr} já existe. Ignorando criação.`);
       res.status(200).json({ 
         success: true, 
         message: 'Lead já existe',
@@ -82,14 +122,14 @@ async function handleDealAdded(deal: PipedriveDeal, res: Response): Promise<void
 
     // Criar novo lead
     const lead = await createLead({
-      lead_id: deal.id.toString(),
-      lead_name: deal.title || `Lead #${deal.id}`,
-      entered_at: deal.add_time,
+      lead_id: dealIdStr,
+      lead_name: dealTitle,
+      entered_at: addTime,
       source: 'Pipedrive',
-      pipeline: deal.pipeline_id?.toString() || 'Default',
+      pipeline: pipelineId.toString(),
     });
 
-    console.log(`✅ Lead ${deal.id} criado com sucesso`);
+    console.log(`✅ Lead ${dealIdStr} criado com sucesso`);
     res.status(201).json({ 
       success: true, 
       message: 'Lead criado com sucesso',
@@ -105,46 +145,40 @@ async function handleDealAdded(deal: PipedriveDeal, res: Response): Promise<void
 }
 
 /**
- * Fluxo B: Atendimento do Lead - Deal atualizado (movimentação de etapa)
+ * Fluxo B: Atendimento do Lead - Deal atualizado
  */
 async function handleDealUpdated(
-  currentDeal: PipedriveDeal, 
-  previousDeal: PipedriveDeal | null, 
+  dealId: string | number,
+  dealTitle: string,
+  addTime: string,
+  pipelineId: string | number,
+  userId: string | number | undefined,
+  ownerName: string,
+  stageId: string | number | undefined,
+  updateTime: string,
   res: Response
 ): Promise<void> {
   try {
-    // Verificar se houve mudança de etapa
-    const stageChanged = previousDeal && currentDeal.stage_id !== previousDeal.stage_id;
+    const dealIdStr = dealId.toString();
     
-    if (!stageChanged) {
-      console.log(`Deal ${currentDeal.id} atualizado sem mudança de etapa. Ignorando.`);
-      res.status(200).json({ 
-        success: true, 
-        message: 'Atualização sem mudança de etapa ignorada' 
-      });
-      return;
-    }
-
-    console.log(`🔄 Deal ${currentDeal.id} mudou de etapa: ${previousDeal?.stage_id} -> ${currentDeal.stage_id}`);
-
     // Primeiro, garantir que o lead existe no banco
-    let existingLead = await findLeadByPipedriveId(currentDeal.id.toString());
+    let existingLead = await findLeadByPipedriveId(dealIdStr);
     
     if (!existingLead) {
       // Lead não existe, criar primeiro
-      console.log(`Lead ${currentDeal.id} não encontrado. Criando...`);
+      console.log(`Lead ${dealIdStr} não encontrado. Criando...`);
       existingLead = await createLead({
-        lead_id: currentDeal.id.toString(),
-        lead_name: currentDeal.title || `Lead #${currentDeal.id}`,
-        entered_at: currentDeal.add_time,
+        lead_id: dealIdStr,
+        lead_name: dealTitle,
+        entered_at: addTime,
         source: 'Pipedrive',
-        pipeline: currentDeal.pipeline_id?.toString() || 'Default',
+        pipeline: pipelineId.toString(),
       });
     }
 
     // Verificar idempotência (já atendido?)
     if (existingLead?.attended_at) {
-      console.log(`Lead ${currentDeal.id} já foi atendido. SLA já calculado.`);
+      console.log(`Lead ${dealIdStr} já foi atendido. SLA já calculado.`);
       res.status(200).json({ 
         success: true, 
         message: 'Lead já foi atendido anteriormente',
@@ -154,15 +188,14 @@ async function handleDealUpdated(
     }
 
     // Registrar atendimento
-    const attendedAt = currentDeal.stage_change_time || currentDeal.update_time;
     const updatedLead = await attendLead(
-      currentDeal.id.toString(),
-      currentDeal.user_id.toString(),
-      currentDeal.owner_name || 'SDR Desconhecido',
-      attendedAt
+      dealIdStr,
+      userId?.toString() || 'unknown',
+      ownerName,
+      updateTime
     );
 
-    console.log(`✅ Lead ${currentDeal.id} marcado como atendido`);
+    console.log(`✅ Lead ${dealIdStr} marcado como atendido`);
     res.status(200).json({ 
       success: true, 
       message: 'Lead atendido com sucesso',
@@ -257,4 +290,3 @@ export async function handleManualAttendance(req: Request, res: Response): Promi
     });
   }
 }
-

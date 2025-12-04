@@ -137,3 +137,5 @@ COMMENT ON COLUMN leads_sla.sla_minutes IS 'Tempo de atendimento calculado em mi
 COMMENT ON COLUMN leads_sla.source IS 'Fonte de origem do lead';
 COMMENT ON COLUMN leads_sla.pipeline IS 'Pipeline do Pipedrive';
 
+
+
