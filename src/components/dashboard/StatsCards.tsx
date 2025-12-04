@@ -5,9 +5,10 @@ import { Lead, SDRPerformance } from "@/lib/mockData";
 interface StatsCardsProps {
   leads: Lead[];
   sdrPerformance: SDRPerformance[];
+  isFilteredBySDR?: boolean; // true quando um SDR específico está selecionado
 }
 
-export const StatsCards = ({ leads, sdrPerformance }: StatsCardsProps) => {
+export const StatsCards = ({ leads, sdrPerformance, isFilteredBySDR = false }: StatsCardsProps) => {
   const attendedLeads = leads.filter(l => l.sla_minutes !== null);
   const pendingLeads = leads.filter(l => l.sla_minutes === null);
   
@@ -31,7 +32,8 @@ export const StatsCards = ({ leads, sdrPerformance }: StatsCardsProps) => {
     return "text-danger";
   };
 
-  const stats = [
+  // Cards base (sempre visíveis)
+  const baseStats = [
     {
       title: "Tempo Médio",
       value: `${averageTime}min`,
@@ -60,6 +62,11 @@ export const StatsCards = ({ leads, sdrPerformance }: StatsCardsProps) => {
       color: pendingLeads.length > 10 ? "text-danger" : "text-muted-foreground",
       bgColor: pendingLeads.length > 10 ? "bg-danger/10" : "bg-muted/30",
     },
+  ];
+
+  // Card "Melhor SDR" só aparece quando NÃO está filtrado por SDR individual
+  const stats = isFilteredBySDR ? baseStats : [
+    ...baseStats,
     {
       title: "Melhor SDR",
       value: sdrPerformance[0]?.sdr_name.split(" ")[0] || "N/A",
@@ -71,7 +78,7 @@ export const StatsCards = ({ leads, sdrPerformance }: StatsCardsProps) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 ${isFilteredBySDR ? 'lg:grid-cols-4' : 'lg:grid-cols-5'}`}>
       {stats.map((stat, index) => (
         <Card key={index} className="border-border hover:shadow-lg transition-shadow">
           <CardContent className="p-6">

@@ -145,7 +145,7 @@ const Index = () => {
               </div>
             ) : (
               <>
-                <StatsCards leads={filteredLeads} sdrPerformance={sdrPerformance} />
+                <StatsCards leads={filteredLeads} sdrPerformance={sdrPerformance} isFilteredBySDR={selectedSDR !== "all"} />
                 
                 <SDRRanking sdrPerformance={sdrPerformance} />
                 
