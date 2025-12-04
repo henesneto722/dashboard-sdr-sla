@@ -7,6 +7,26 @@ import { Request, Response } from 'express';
 import { createLead, attendLead, findLeadByPipedriveId } from '../services/leadsService.js';
 
 /**
+ * Mapeamento de Pipeline ID para Nome do SDR
+ * Atualize este objeto quando criar novos funis no Pipedrive
+ */
+const PIPELINE_TO_SDR: Record<string, string> = {
+  '1': 'SDR Principal',
+  '2': 'João',
+  '3': 'Maria',
+  '4': 'Marcos',
+  '5': 'Julia',
+};
+
+/**
+ * Retorna o nome do SDR baseado no Pipeline ID
+ */
+function getSDRNameFromPipeline(pipelineId: string | number): string {
+  const id = pipelineId.toString();
+  return PIPELINE_TO_SDR[id] || `SDR Pipeline ${id}`;
+}
+
+/**
  * Processa webhook de Deal do Pipedrive
  */
 export async function handlePipedriveWebhook(req: Request, res: Response): Promise<void> {
@@ -32,21 +52,14 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
     const pipelineId = dealData?.pipeline_id || payload.pipeline_id || 'Default';
     const userId = dealData?.user_id || dealData?.owner_id || dealData?.creator_user_id || payload.user_id;
     
-    // Capturar nome do SDR de várias fontes possíveis do Pipedrive
-    const ownerName = dealData?.owner_name 
-      || dealData?.user_name 
-      || dealData?.person_name
-      || dealData?.creator_user_id?.name
-      || payload.meta?.user_name
-      || payload.owner_name
-      || (dealData?.user_id ? `SDR #${dealData.user_id}` : null)
-      || 'SDR Desconhecido';
+    // Usar o nome do Pipeline como nome do SDR
+    const sdrName = getSDRNameFromPipeline(pipelineId);
     
     const stageId = dealData?.stage_id || payload.stage_id;
     const updateTime = dealData?.update_time || dealData?.updated_at || new Date().toISOString();
     
-    // Log detalhado para debug do SDR
-    console.log(`👤 SDR Info: owner_name=${dealData?.owner_name}, user_name=${dealData?.user_name}, user_id=${userId}`);
+    // Log detalhado para debug
+    console.log(`👤 SDR Info: pipeline_id=${pipelineId}, sdr_name=${sdrName}`);
 
     console.log(`📥 Webhook processado: action=${action}, deal_id=${dealId}, title=${dealTitle}`);
 
@@ -67,16 +80,16 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
     // Processar com base na ação
     switch (normalizedAction) {
       case 'added':
-        await handleDealAdded(dealId, dealTitle, addTime, pipelineId, res);
+        await handleDealAdded(dealId, dealTitle, addTime, pipelineId, sdrName, res);
         break;
 
       case 'updated':
-        await handleDealUpdated(dealId, dealTitle, addTime, pipelineId, userId, ownerName, stageId, updateTime, res);
+        await handleDealUpdated(dealId, dealTitle, addTime, pipelineId, userId, sdrName, stageId, updateTime, res);
         break;
 
       default:
         console.log(`Ação ${action} (${normalizedAction}) - criando lead por padrão`);
-        await handleDealAdded(dealId, dealTitle, addTime, pipelineId, res);
+        await handleDealAdded(dealId, dealTitle, addTime, pipelineId, sdrName, res);
     }
   } catch (error) {
     console.error('❌ Erro ao processar webhook:', error);
@@ -116,6 +129,7 @@ async function handleDealAdded(
   dealTitle: string,
   addTime: string,
   pipelineId: string | number,
+  sdrName: string,
   res: Response
 ): Promise<void> {
   try {
@@ -133,16 +147,18 @@ async function handleDealAdded(
       return;
     }
 
-    // Criar novo lead
+    // Criar novo lead com o SDR já identificado pelo pipeline
     const lead = await createLead({
       lead_id: dealIdStr,
       lead_name: dealTitle,
       entered_at: addTime,
       source: 'Pipedrive',
       pipeline: pipelineId.toString(),
+      sdr_id: pipelineId.toString(),
+      sdr_name: sdrName,
     });
 
-    console.log(`✅ Lead ${dealIdStr} criado com sucesso`);
+    console.log(`✅ Lead ${dealIdStr} criado com sucesso - SDR: ${sdrName}`);
     res.status(201).json({ 
       success: true, 
       message: 'Lead criado com sucesso',
@@ -166,7 +182,7 @@ async function handleDealUpdated(
   addTime: string,
   pipelineId: string | number,
   userId: string | number | undefined,
-  ownerName: string,
+  sdrName: string,
   stageId: string | number | undefined,
   updateTime: string,
   res: Response
@@ -186,6 +202,8 @@ async function handleDealUpdated(
         entered_at: addTime,
         source: 'Pipedrive',
         pipeline: pipelineId.toString(),
+        sdr_id: pipelineId.toString(),
+        sdr_name: sdrName,
       });
     }
 
@@ -203,12 +221,12 @@ async function handleDealUpdated(
     // Registrar atendimento
     const updatedLead = await attendLead(
       dealIdStr,
-      userId?.toString() || 'unknown',
-      ownerName,
+      pipelineId.toString(),
+      sdrName,
       updateTime
     );
 
-    console.log(`✅ Lead ${dealIdStr} marcado como atendido`);
+    console.log(`✅ Lead ${dealIdStr} marcado como atendido - SDR: ${sdrName}`);
     res.status(200).json({ 
       success: true, 
       message: 'Lead atendido com sucesso',

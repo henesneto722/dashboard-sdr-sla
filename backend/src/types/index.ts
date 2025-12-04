@@ -27,6 +27,8 @@ export interface LeadSLAInsert {
   entered_at: string;
   source?: string;
   pipeline?: string;
+  sdr_id?: string;
+  sdr_name?: string;
 }
 
 export interface LeadSLAUpdate {
