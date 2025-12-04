@@ -6,6 +6,12 @@
 const PIPEDRIVE_API_TOKEN = process.env.PIPEDRIVE_API_TOKEN;
 const PIPEDRIVE_API_URL = 'https://api.pipedrive.com/v1';
 
+// Tipos para resposta da API do Pipedrive
+interface PipedriveApiResponse {
+  success: boolean;
+  data: any[] | null;
+}
+
 // Cache para evitar múltiplas requisições
 let pipelinesCache: Map<string, PipelineInfo> | null = null;
 let stagesCache: Map<string, StageInfo> | null = null;
@@ -50,7 +56,7 @@ async function fetchPipelines(): Promise<PipelineInfo[]> {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as PipedriveApiResponse;
     
     if (!data.success || !data.data) {
       console.error('❌ Erro ao buscar pipelines:', data);
@@ -86,7 +92,7 @@ async function fetchStages(): Promise<StageInfo[]> {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
     
-    const data = await response.json();
+    const data = await response.json() as PipedriveApiResponse;
     
     if (!data.success || !data.data) {
       console.error('❌ Erro ao buscar stages:', data);
