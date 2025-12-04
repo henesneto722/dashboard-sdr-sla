@@ -66,7 +66,10 @@ async function fetchPipelines(): Promise<PipelineInfo[]> {
     return data.data.map((p: any) => ({
       id: p.id,
       name: p.name,
-      isSDR: p.name.toLowerCase().includes('- sdr') || p.name.toLowerCase().includes('-sdr')
+      // Detecta funis SDR: contém "- SDR", "-SDR", ou é exatamente "SDR"
+      isSDR: p.name.toLowerCase().includes('- sdr') 
+        || p.name.toLowerCase().includes('-sdr')
+        || p.name.toLowerCase().trim() === 'sdr'
     }));
   } catch (error) {
     console.error('❌ Erro ao buscar pipelines do Pipedrive:', error);
@@ -176,6 +179,7 @@ export async function isSDRPipeline(pipelineId: string | number): Promise<boolea
 /**
  * Extrai o nome do SDR do nome do pipeline
  * Ex: "João - SDR" → "João"
+ * Se for o funil "SDR" principal, retorna "SDR Geral"
  */
 export async function getSDRNameFromPipelineId(pipelineId: string | number): Promise<string> {
   const pipeline = await getPipelineInfo(pipelineId);
@@ -186,6 +190,11 @@ export async function getSDRNameFromPipelineId(pipelineId: string | number): Pro
 
   if (!pipeline.isSDR) {
     return pipeline.name;
+  }
+
+  // Se for o funil "SDR" principal (nome é exatamente "SDR")
+  if (pipeline.name.toLowerCase().trim() === 'sdr') {
+    return 'SDR Geral';
   }
 
   // Extrai o nome do SDR removendo "- SDR" ou "-SDR"
