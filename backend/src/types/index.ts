@@ -17,6 +17,8 @@ export interface LeadSLA {
   sla_minutes: number | null;
   source: string;
   pipeline: string;
+  stage_name: string | null;
+  stage_priority: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -29,6 +31,10 @@ export interface LeadSLAInsert {
   pipeline?: string;
   sdr_id?: string;
   sdr_name?: string;
+  stage_name?: string;
+  stage_priority?: number;
+  attended_at?: string;
+  sla_minutes?: number;
 }
 
 export interface LeadSLAUpdate {
@@ -36,6 +42,8 @@ export interface LeadSLAUpdate {
   sdr_name?: string;
   attended_at?: string;
   sla_minutes?: number;
+  stage_name?: string;
+  stage_priority?: number;
 }
 
 // ============================================

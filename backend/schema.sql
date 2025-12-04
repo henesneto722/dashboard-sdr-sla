@@ -31,6 +31,10 @@ CREATE TABLE IF NOT EXISTS leads_sla (
     source VARCHAR(100) DEFAULT 'Pipedrive',
     pipeline VARCHAR(100) DEFAULT 'Default',
     
+    -- Stage do lead (TEM PERFIL, PERFIL MENOR, INCONCLUSIVO, SEM PERFIL)
+    stage_name VARCHAR(100),
+    stage_priority INTEGER DEFAULT 99,
+    
     -- Metadados
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -41,6 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_leads_sla_entered_at ON leads_sla(entered_at DESC
 CREATE INDEX IF NOT EXISTS idx_leads_sla_sdr_id ON leads_sla(sdr_id);
 CREATE INDEX IF NOT EXISTS idx_leads_sla_lead_id ON leads_sla(lead_id);
 CREATE INDEX IF NOT EXISTS idx_leads_sla_attended_at ON leads_sla(attended_at);
+CREATE INDEX IF NOT EXISTS idx_leads_sla_stage_priority ON leads_sla(stage_priority);
 
 -- Função para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()

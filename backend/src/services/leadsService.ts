@@ -25,11 +25,19 @@ import {
 
 /**
  * Cria um novo registro de lead (Fluxo A: Entrada de Lead)
+ * Se attended_at for fornecido, calcula o SLA automaticamente
  */
 export async function createLead(data: LeadSLAInsert): Promise<LeadSLA | null> {
+  // Se já vem com attended_at, calcular o SLA
+  let insertData: any = { ...data };
+  
+  if (data.attended_at && data.entered_at && !data.sla_minutes) {
+    insertData.sla_minutes = calculateMinutesDiff(data.entered_at, data.attended_at);
+  }
+
   const { data: lead, error } = await supabase
     .from('leads_sla')
-    .insert(data)
+    .insert(insertData)
     .select()
     .single();
 
@@ -105,6 +113,32 @@ export async function attendLead(
   }
 
   console.log(`✅ Lead ${leadId} atendido com SLA de ${slaMinutes} minutos`);
+  return updatedLead;
+}
+
+/**
+ * Atualiza o stage de um lead
+ */
+export async function updateLeadStage(
+  leadId: string,
+  stageName: string,
+  stagePriority: number
+): Promise<LeadSLA | null> {
+  const { data: updatedLead, error } = await supabase
+    .from('leads_sla')
+    .update({
+      stage_name: stageName,
+      stage_priority: stagePriority,
+    })
+    .eq('lead_id', leadId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao atualizar stage do lead:', error);
+    return null;
+  }
+
   return updatedLead;
 }
 
@@ -381,4 +415,24 @@ export async function getUniqueSDRs(): Promise<{ sdr_id: string; sdr_name: strin
     sdr_id,
     sdr_name,
   }));
+}
+
+/**
+ * Limpa todos os dados de teste (usar com cuidado!)
+ */
+export async function clearAllLeads(): Promise<number> {
+  const { data, error } = await supabase
+    .from('leads_sla')
+    .delete()
+    .neq('id', '00000000-0000-0000-0000-000000000000') // Deleta tudo
+    .select();
+
+  if (error) {
+    console.error('Erro ao limpar leads:', error);
+    throw new Error(`Erro ao limpar leads: ${error.message}`);
+  }
+
+  const count = data?.length || 0;
+  console.log(`🗑️ ${count} leads removidos do banco de dados`);
+  return count;
 }
