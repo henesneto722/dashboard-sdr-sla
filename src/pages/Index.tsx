@@ -10,16 +10,22 @@ import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
 import { Activity, Loader2 } from "lucide-react";
 
+// Interface para SDR com id e nome
+interface SDRInfo {
+  sdr_id: string;
+  sdr_name: string;
+}
+
 const Index = () => {
   // Estado dos dados
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
-  const [sdrs, setSDRs] = useState<string[]>([]);
+  const [sdrsInfo, setSDRsInfo] = useState<SDRInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filtros
   const [selectedPeriod, setSelectedPeriod] = useState("30days");
-  const [selectedSDR, setSelectedSDR] = useState("all");
+  const [selectedSDR, setSelectedSDR] = useState("all"); // Armazena o sdr_name para exibição
 
   // Carregar dados da API
   useEffect(() => {
@@ -28,18 +34,29 @@ const Index = () => {
       setError(null);
       
       try {
-        const [leadsData, sdrsData] = await Promise.all([
-          fetchLeads({ period: selectedPeriod, sdr_id: selectedSDR !== 'all' ? selectedSDR : undefined }),
-          fetchSDRs()
-        ]);
+        // Buscar SDRs primeiro para ter o mapeamento
+        const sdrsData = await fetchSDRs();
+        setSDRsInfo(sdrsData || []);
+        
+        // Encontrar o sdr_id correspondente ao nome selecionado
+        let sdrIdToFilter: string | undefined;
+        if (selectedSDR !== 'all' && sdrsData) {
+          const sdrInfo = sdrsData.find((s: SDRInfo) => s.sdr_name === selectedSDR);
+          sdrIdToFilter = sdrInfo?.sdr_id;
+        }
+        
+        // Buscar leads com o filtro correto
+        const leadsData = await fetchLeads({ 
+          period: selectedPeriod, 
+          sdr_id: sdrIdToFilter 
+        });
         
         setAllLeads(leadsData || []);
-        setSDRs(sdrsData?.map((s: { sdr_id: string; sdr_name: string }) => s.sdr_name) || []);
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
         setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
         setAllLeads([]);
-        setSDRs([]);
+        setSDRsInfo([]);
       } finally {
         setLoading(false);
       }
@@ -63,11 +80,14 @@ const Index = () => {
   // Calcular performance dos SDRs
   const sdrPerformance = useMemo(() => calculateSDRPerformance(filteredLeads), [filteredLeads]);
 
-  // Lista única de SDRs
+  // Lista única de SDRs (nomes para exibição)
   const uniqueSDRs = useMemo((): string[] => {
-    if (sdrs.length > 0) return sdrs;
-    return Array.from(new Set(allLeads.map((l) => l.sdr_name)));
-  }, [allLeads, sdrs]);
+    if (sdrsInfo.length > 0) {
+      return sdrsInfo.map(s => s.sdr_name).filter(Boolean);
+    }
+    // Fallback: extrair dos leads
+    return Array.from(new Set(allLeads.map((l) => l.sdr_name).filter(Boolean)));
+  }, [allLeads, sdrsInfo]);
 
   return (
     <div className="min-h-screen bg-background">
