@@ -65,18 +65,21 @@ export const DashboardFilters = ({
             </Select>
           </div>
 
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => {
-                onPeriodChange("all");
-                onSDRChange("all");
-              }}
-            >
-              Limpar Filtros
-            </Button>
-          </div>
+          {/* Botão Limpar Filtros só aparece quando algum filtro está ativo */}
+          {(selectedPeriod !== "30days" || selectedSDR !== "all") && (
+            <div className="flex items-end">
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  onPeriodChange("30days");
+                  onSDRChange("all");
+                }}
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
