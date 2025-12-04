@@ -30,10 +30,23 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
     const dealTitle = dealData?.title || dealData?.name || payload.title || `Lead #${dealId}`;
     const addTime = dealData?.add_time || dealData?.created_at || new Date().toISOString();
     const pipelineId = dealData?.pipeline_id || payload.pipeline_id || 'Default';
-    const userId = dealData?.user_id || dealData?.owner_id || payload.user_id;
-    const ownerName = dealData?.owner_name || dealData?.user_name || 'SDR';
+    const userId = dealData?.user_id || dealData?.owner_id || dealData?.creator_user_id || payload.user_id;
+    
+    // Capturar nome do SDR de várias fontes possíveis do Pipedrive
+    const ownerName = dealData?.owner_name 
+      || dealData?.user_name 
+      || dealData?.person_name
+      || dealData?.creator_user_id?.name
+      || payload.meta?.user_name
+      || payload.owner_name
+      || (dealData?.user_id ? `SDR #${dealData.user_id}` : null)
+      || 'SDR Desconhecido';
+    
     const stageId = dealData?.stage_id || payload.stage_id;
     const updateTime = dealData?.update_time || dealData?.updated_at || new Date().toISOString();
+    
+    // Log detalhado para debug do SDR
+    console.log(`👤 SDR Info: owner_name=${dealData?.owner_name}, user_name=${dealData?.user_name}, user_id=${userId}`);
 
     console.log(`📥 Webhook processado: action=${action}, deal_id=${dealId}, title=${dealTitle}`);
 
