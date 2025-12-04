@@ -12,7 +12,9 @@
 import { Request, Response } from 'express';
 import { createLead, attendLead, findLeadByPipedriveId, updateLeadStage } from '../services/leadsService.js';
 import { 
-  isSDRPipeline, 
+  isSDRPipeline,
+  isMainSDRPipeline,
+  isIndividualSDRPipeline,
   getSDRNameFromPipelineId, 
   getStageName,
   getStagePriority 
@@ -78,11 +80,16 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
       return;
     }
 
+    // Verificar se é o funil principal "SDR" ou um funil individual "NOME - SDR"
+    const isMain = await isMainSDRPipeline(pipelineId);
+    const isIndividual = await isIndividualSDRPipeline(pipelineId);
+
     // Buscar nome do SDR e do stage
     const sdrName = await getSDRNameFromPipelineId(pipelineId);
     const stageName = stageId ? await getStageName(stageId) : 'Desconhecido';
     const stagePriority = getStagePriority(stageName);
 
+    console.log(`📊 Pipeline: ${isMain ? 'PRINCIPAL (SDR)' : 'INDIVIDUAL (' + sdrName + ')'}`);
     console.log(`👤 SDR: ${sdrName}, Stage: ${stageName} (prioridade: ${stagePriority})`);
 
     // Normalizar ação
@@ -94,14 +101,14 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
       case 'added':
         await handleDealAdded(
           dealId, dealTitle, addTime, pipelineId, sdrName, 
-          stageId, stageName, stagePriority, userId, updateTime, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, res
         );
         break;
 
       case 'updated':
         await handleDealUpdated(
           dealId, dealTitle, addTime, pipelineId, sdrName,
-          stageId, stageName, stagePriority, userId, updateTime, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, res
         );
         break;
 
@@ -109,7 +116,7 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
         console.log(`Ação ${action} - criando lead por padrão`);
         await handleDealAdded(
           dealId, dealTitle, addTime, pipelineId, sdrName,
-          stageId, stageName, stagePriority, userId, updateTime, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, res
         );
     }
   } catch (error) {
@@ -143,8 +150,9 @@ function normalizeAction(action: string | undefined): string {
 }
 
 /**
- * Fluxo A: Deal criado - Cria registro do lead
- * Se o deal já tem um owner (user_id), considera como atendido
+ * Fluxo A: Deal criado
+ * - Se no funil "SDR" principal → Lead PENDENTE
+ * - Se no funil "NOME - SDR" individual → Lead ATENDIDO (SDR já pegou)
  */
 async function handleDealAdded(
   dealId: string | number,
@@ -155,7 +163,8 @@ async function handleDealAdded(
   stageId: string | number | undefined,
   stageName: string,
   stagePriority: number,
-  userId: string | number | undefined,
+  isMainPipeline: boolean,
+  isIndividualPipeline: boolean,
   updateTime: string,
   res: Response
 ): Promise<void> {
@@ -174,8 +183,8 @@ async function handleDealAdded(
       return;
     }
 
-    // Se o deal já tem um owner, já está atendido
-    const isAttended = !!userId;
+    // Se está no funil individual "NOME - SDR", já foi atendido pelo SDR
+    const isAttended = isIndividualPipeline;
     
     // Criar novo lead
     const leadData: any = {
@@ -184,24 +193,25 @@ async function handleDealAdded(
       entered_at: addTime,
       source: 'Pipedrive',
       pipeline: pipelineId.toString(),
-      sdr_id: pipelineId.toString(),
-      sdr_name: sdrName,
       stage_name: stageName,
       stage_priority: stagePriority,
     };
 
-    // Se já tem owner, marcar como atendido
+    // Se está no funil individual (SDR já pegou), marcar como atendido
     if (isAttended) {
+      leadData.sdr_id = pipelineId.toString();
+      leadData.sdr_name = sdrName;
       leadData.attended_at = updateTime;
       // SLA será calculado no serviço
     }
 
     const lead = await createLead(leadData);
 
-    console.log(`✅ Lead ${dealIdStr} criado - SDR: ${sdrName}, Atendido: ${isAttended}`);
+    const status = isMainPipeline ? 'PENDENTE' : 'ATENDIDO por ' + sdrName;
+    console.log(`✅ Lead ${dealIdStr} criado - Status: ${status}`);
     res.status(201).json({ 
       success: true, 
-      message: isAttended ? 'Lead criado e atendido' : 'Lead criado',
+      message: isAttended ? `Lead atendido por ${sdrName}` : 'Lead pendente',
       lead 
     });
   } catch (error) {
@@ -215,8 +225,8 @@ async function handleDealAdded(
 
 /**
  * Fluxo B: Deal atualizado
+ * - Se movido do funil "SDR" para "NOME - SDR" → ATENDIDO (SDR pegou)
  * - Se não existia, cria
- * - Se recebeu um owner (user_id), marca como atendido
  * - Atualiza o stage se mudou
  */
 async function handleDealUpdated(
@@ -228,7 +238,8 @@ async function handleDealUpdated(
   stageId: string | number | undefined,
   stageName: string,
   stagePriority: number,
-  userId: string | number | undefined,
+  isMainPipeline: boolean,
+  isIndividualPipeline: boolean,
   updateTime: string,
   res: Response
 ): Promise<void> {
@@ -242,7 +253,7 @@ async function handleDealUpdated(
       // Lead não existe, criar
       console.log(`Lead ${dealIdStr} não encontrado. Criando...`);
       
-      const isAttended = !!userId;
+      const isAttended = isIndividualPipeline;
       
       const leadData: any = {
         lead_id: dealIdStr,
@@ -250,22 +261,23 @@ async function handleDealUpdated(
         entered_at: addTime,
         source: 'Pipedrive',
         pipeline: pipelineId.toString(),
-        sdr_id: pipelineId.toString(),
-        sdr_name: sdrName,
         stage_name: stageName,
         stage_priority: stagePriority,
       };
 
       if (isAttended) {
+        leadData.sdr_id = pipelineId.toString();
+        leadData.sdr_name = sdrName;
         leadData.attended_at = updateTime;
       }
 
       existingLead = await createLead(leadData);
       
-      console.log(`✅ Lead ${dealIdStr} criado via update - SDR: ${sdrName}`);
+      const status = isMainPipeline ? 'PENDENTE' : 'ATENDIDO por ' + sdrName;
+      console.log(`✅ Lead ${dealIdStr} criado via update - Status: ${status}`);
       res.status(201).json({ 
         success: true, 
-        message: 'Lead criado via update',
+        message: isAttended ? `Lead atendido por ${sdrName}` : 'Lead pendente',
         lead: existingLead 
       });
       return;
@@ -273,8 +285,8 @@ async function handleDealUpdated(
 
     // Lead existe - verificar se precisa atualizar
     
-    // Se ainda não foi atendido e agora tem um owner, marcar como atendido
-    if (!existingLead.attended_at && userId) {
+    // Se ainda não foi atendido e agora está em um funil individual, marcar como atendido
+    if (!existingLead.attended_at && isIndividualPipeline) {
       const updatedLead = await attendLead(
         dealIdStr,
         pipelineId.toString(),
@@ -287,10 +299,10 @@ async function handleDealUpdated(
         await updateLeadStage(dealIdStr, stageName, stagePriority);
       }
 
-      console.log(`✅ Lead ${dealIdStr} marcado como atendido - SDR: ${sdrName}`);
+      console.log(`✅ Lead ${dealIdStr} ATENDIDO por ${sdrName} - SLA calculado!`);
       res.status(200).json({ 
         success: true, 
-        message: 'Lead atendido',
+        message: `Lead atendido por ${sdrName}`,
         lead: updatedLead 
       });
       return;
@@ -302,7 +314,7 @@ async function handleDealUpdated(
       console.log(`🔄 Lead ${dealIdStr} - Stage atualizado para: ${stageName}`);
     }
 
-    console.log(`ℹ️ Lead ${dealIdStr} atualizado sem mudanças significativas`);
+    console.log(`ℹ️ Lead ${dealIdStr} atualizado`);
     res.status(200).json({ 
       success: true, 
       message: 'Lead atualizado',

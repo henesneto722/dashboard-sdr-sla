@@ -21,7 +21,9 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 interface PipelineInfo {
   id: number;
   name: string;
-  isSDR: boolean; // true se o nome contém "- SDR"
+  isSDR: boolean; // true se é relacionado a SDR
+  isMainSDR: boolean; // true se é o funil principal "SDR" (leads pendentes)
+  isIndividualSDR: boolean; // true se é funil individual "NOME - SDR" (leads atendidos)
 }
 
 interface StageInfo {
@@ -63,14 +65,19 @@ async function fetchPipelines(): Promise<PipelineInfo[]> {
       return [];
     }
 
-    return data.data.map((p: any) => ({
-      id: p.id,
-      name: p.name,
-      // Detecta funis SDR: contém "- SDR", "-SDR", ou é exatamente "SDR"
-      isSDR: p.name.toLowerCase().includes('- sdr') 
-        || p.name.toLowerCase().includes('-sdr')
-        || p.name.toLowerCase().trim() === 'sdr'
-    }));
+    return data.data.map((p: any) => {
+      const nameLower = p.name.toLowerCase().trim();
+      const isMainSDR = nameLower === 'sdr'; // Funil principal "SDR"
+      const isIndividualSDR = nameLower.includes('- sdr') || nameLower.includes('-sdr'); // "NOME - SDR"
+      
+      return {
+        id: p.id,
+        name: p.name,
+        isSDR: isMainSDR || isIndividualSDR,
+        isMainSDR,
+        isIndividualSDR
+      };
+    });
   } catch (error) {
     console.error('❌ Erro ao buscar pipelines do Pipedrive:', error);
     return [];
@@ -169,11 +176,27 @@ export async function getStageInfo(stageId: string | number): Promise<StageInfo 
 }
 
 /**
- * Verifica se um pipeline é de SDR (nome contém "- SDR")
+ * Verifica se um pipeline é de SDR (nome contém "- SDR" ou é "SDR")
  */
 export async function isSDRPipeline(pipelineId: string | number): Promise<boolean> {
   const pipeline = await getPipelineInfo(pipelineId);
   return pipeline?.isSDR || false;
+}
+
+/**
+ * Verifica se é o funil principal "SDR" (leads entram aqui como pendentes)
+ */
+export async function isMainSDRPipeline(pipelineId: string | number): Promise<boolean> {
+  const pipeline = await getPipelineInfo(pipelineId);
+  return pipeline?.isMainSDR || false;
+}
+
+/**
+ * Verifica se é um funil individual de SDR "NOME - SDR" (leads atendidos)
+ */
+export async function isIndividualSDRPipeline(pipelineId: string | number): Promise<boolean> {
+  const pipeline = await getPipelineInfo(pipelineId);
+  return pipeline?.isIndividualSDR || false;
 }
 
 /**
