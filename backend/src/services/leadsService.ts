@@ -28,6 +28,7 @@ import { cache, CACHE_KEYS, CACHE_TTL } from './cacheService.js';
 /**
  * Cria um novo registro de lead (Fluxo A: Entrada de Lead)
  * Se attended_at for fornecido, calcula o SLA automaticamente
+ * Invalida o cache após criação
  */
 export async function createLead(data: LeadSLAInsert): Promise<LeadSLA | null> {
   // Se já vem com attended_at, calcular o SLA
@@ -47,6 +48,13 @@ export async function createLead(data: LeadSLAInsert): Promise<LeadSLA | null> {
     console.error('Erro ao criar lead:', error);
     throw new Error(`Erro ao criar lead: ${error.message}`);
   }
+
+  // Invalidar cache para forçar atualização imediata
+  cache.invalidate(CACHE_KEYS.GENERAL_METRICS);
+  cache.invalidate(CACHE_KEYS.SDR_RANKING);
+  cache.invalidate(CACHE_KEYS.IMPORTANT_PENDING);
+  
+  console.log('🗑️ Cache invalidado após criar lead');
 
   return lead;
 }
@@ -72,6 +80,7 @@ export async function findLeadByPipedriveId(leadId: string): Promise<LeadSLA | n
 /**
  * Atualiza um lead com dados de atendimento (Fluxo B: Atendimento)
  * Inclui verificação de idempotência
+ * Invalida o cache após atendimento
  */
 export async function attendLead(
   leadId: string, 
@@ -113,6 +122,13 @@ export async function attendLead(
     console.error('Erro ao atualizar lead:', error);
     throw new Error(`Erro ao atualizar lead: ${error.message}`);
   }
+
+  // Invalidar cache para forçar atualização imediata
+  cache.invalidate(CACHE_KEYS.GENERAL_METRICS);
+  cache.invalidate(CACHE_KEYS.SDR_RANKING);
+  cache.invalidate(CACHE_KEYS.IMPORTANT_PENDING);
+  
+  console.log('🗑️ Cache invalidado após atender lead');
 
   console.log(`✅ Lead ${leadId} atendido com SLA de ${slaMinutes} minutos`);
   return updatedLead;
@@ -381,16 +397,17 @@ export async function getPendingLeads(limit: number = 50): Promise<LeadSLA[]> {
 /**
  * GET /leads/important-pending - Leads importantes pendentes
  * (Tem perfil ou Perfil menor, sem attended_at, últimos 30 dias)
+ * Busca case-insensitive para pegar todas variações
  */
 export async function getImportantPendingLeads(): Promise<{ count: number; leads: LeadSLA[] }> {
   const thirtyDaysAgo = getThirtyDaysAgo();
 
-  const { data: leads, error } = await supabase
+  // Buscar todos os leads pendentes e filtrar em memória (case-insensitive)
+  const { data: allPending, error } = await supabase
     .from('leads_sla')
     .select('*')
     .gte('entered_at', thirtyDaysAgo)
     .is('attended_at', null)
-    .in('stage_name', ['Tem perfil', 'Perfil menor', 'TEM PERFIL', 'PERFIL MENOR'])
     .order('stage_priority', { ascending: true })
     .order('entered_at', { ascending: true });
 
@@ -398,9 +415,15 @@ export async function getImportantPendingLeads(): Promise<{ count: number; leads
     throw new Error(`Erro ao buscar leads importantes pendentes: ${error.message}`);
   }
 
+  // Filtrar em memória (case-insensitive) para "Tem Perfil" e "Perfil Menor"
+  const importantLeads = (allPending || []).filter(lead => {
+    const stageName = (lead.stage_name || '').toLowerCase().trim();
+    return stageName.includes('tem perfil') || stageName.includes('perfil menor');
+  });
+
   return {
-    count: leads?.length || 0,
-    leads: leads || [],
+    count: importantLeads.length,
+    leads: importantLeads,
   };
 }
 
