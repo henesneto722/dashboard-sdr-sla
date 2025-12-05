@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lead, getPerformanceColor } from "@/lib/mockData";
+import { Lead, getPerformanceColor, formatTime } from "@/lib/mockData";
 import { Clock } from "lucide-react";
 
 interface TimelineProps {
@@ -47,7 +47,7 @@ export const Timeline = ({ leads }: TimelineProps) => {
                   <div className="flex items-center gap-4 text-muted-foreground">
                     <span>{lead.sdr_name}</span>
                     <span className={`font-semibold ${getTextColor()}`}>
-                      {lead.sla_minutes}min
+                      {formatTime(lead.sla_minutes)}
                     </span>
                   </div>
                 </div>

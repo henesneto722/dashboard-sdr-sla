@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lead } from "@/lib/mockData";
+import { Lead, formatTime } from "@/lib/mockData";
 import { Clock } from "lucide-react";
 import {
   Tooltip,
@@ -124,7 +124,7 @@ export const HourlyPerformance = ({ leads }: HourlyPerformanceProps) => {
                           }}
                         >
                           <span className="text-xs font-semibold text-white ml-2 whitespace-nowrap">
-                            {data.avgSLA} min
+                            {formatTime(data.avgSLA)}
                           </span>
                         </div>
                       ) : (
@@ -143,7 +143,7 @@ export const HourlyPerformance = ({ leads }: HourlyPerformanceProps) => {
                 <TooltipContent>
                   <div className="text-sm">
                     <p className="font-semibold">{data.label}</p>
-                    <p>SLA Médio: {data.avgSLA > 0 ? `${data.avgSLA} min` : "N/A"}</p>
+                    <p>SLA Médio: {data.avgSLA > 0 ? formatTime(data.avgSLA) : "N/A"}</p>
                     <p>Leads atendidos: {data.count}</p>
                     <p>Status: {data.count > 0 ? getHourlyPerformanceLabel(data.avgSLA) : "Sem dados"}</p>
                   </div>

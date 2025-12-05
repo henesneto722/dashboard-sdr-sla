@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SDRPerformance, getPerformanceColor, getPerformanceLabel } from "@/lib/mockData";
+import { SDRPerformance, getPerformanceColor, getPerformanceLabel, formatTime } from "@/lib/mockData";
 import { Trophy } from "lucide-react";
 
 interface SDRRankingProps {
@@ -58,7 +58,7 @@ export const SDRRanking = ({ sdrPerformance }: SDRRankingProps) => {
                   </div>
                   <div className="text-right">
                     <p className={`text-lg font-bold ${getTextColor()}`}>
-                      {sdr.average_time}min
+                      {formatTime(sdr.average_time)}
                     </p>
                     <p className={`text-xs font-medium ${getTextColor()}`}>
                       {label}
@@ -71,7 +71,7 @@ export const SDRRanking = ({ sdrPerformance }: SDRRankingProps) => {
                     style={{ width: `${widthPercentage}%` }}
                   >
                     <span className={`text-xs font-semibold ${getTextOnBarColor()}`}>
-                      {sdr.average_time}min
+                      {formatTime(sdr.average_time)}
                     </span>
                   </div>
                 </div>
