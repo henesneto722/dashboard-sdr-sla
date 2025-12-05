@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, TrendingUp, AlertCircle, Users, Award, AlertTriangle } from "lucide-react";
-import { Lead, SDRPerformance } from "@/lib/mockData";
+import { Lead, SDRPerformance, formatTime } from "@/lib/mockData";
 
 interface StatsCardsProps {
   leads: Lead[];
@@ -44,7 +44,7 @@ export const StatsCards = ({
   const baseStats = [
     {
       title: "Tempo Médio",
-      value: `${averageTime}min`,
+      value: formatTime(averageTime),
       icon: Clock,
       color: getColorClass(averageTime),
       bgColor: averageTime <= 30 ? "bg-success/10" : averageTime <= 60 ? "bg-warning/10" : "bg-danger/10",
@@ -58,7 +58,7 @@ export const StatsCards = ({
     },
     {
       title: "Pior Tempo",
-      value: `${worstTime}min`,
+      value: formatTime(worstTime),
       icon: AlertCircle,
       color: "text-danger",
       bgColor: "bg-danger/10",
@@ -91,7 +91,7 @@ export const StatsCards = ({
       icon: Award,
       color: "text-success",
       bgColor: "bg-success/10",
-      subtitle: sdrPerformance[0] ? `${sdrPerformance[0].average_time}min` : "",
+      subtitle: sdrPerformance[0] ? formatTime(sdrPerformance[0].average_time) : "",
     },
   ];
 

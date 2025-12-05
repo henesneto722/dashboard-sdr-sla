@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Lead, getPerformanceColor, getPerformanceLabel } from "@/lib/mockData";
+import { Lead, getPerformanceColor, getPerformanceLabel, formatTime } from "@/lib/mockData";
 import { ArrowUpDown, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -220,7 +220,7 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
                     </TableCell>
                     <TableCell>
                       <Badge variant={getBadgeVariant()}>
-                        {lead.sla_minutes ? `${lead.sla_minutes}min - ${label}` : "Pendente"}
+                        {lead.sla_minutes ? `${formatTime(lead.sla_minutes)} - ${label}` : "Pendente"}
                       </Badge>
                     </TableCell>
                   </TableRow>

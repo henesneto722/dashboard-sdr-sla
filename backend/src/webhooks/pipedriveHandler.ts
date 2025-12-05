@@ -2,12 +2,35 @@
  * Handler para webhooks do Pipedrive
  * Processa eventos de criação e atualização de Deals
  * 
- * Regras:
- * - Apenas processa deals de pipelines que contêm "- SDR" no nome
- * - O nome do SDR é extraído automaticamente do nome do pipeline
- * - Deal é considerado "atendido" quando é atribuído a um usuário (owner)
- * - Stages de prioridade: TEM PERFIL > PERFIL MENOR > INCONCLUSIVO > SEM PERFIL
+ * REGRAS DE NEGÓCIO:
+ * 
+ * 1. FUNIL PRINCIPAL "SDR":
+ *    - Apenas contabiliza deals nas etapas: TEM PERFIL, PERFIL MENOR, INCONCLUSIVO, SEM PERFIL
+ *    - Outras etapas são IGNORADAS completamente
+ *    - Prioridade: TEM PERFIL (1) > PERFIL MENOR (2) > INCONCLUSIVO (3) > SEM PERFIL (4)
+ * 
+ * 2. FUNIS ESPECÍFICOS "NOME - SDR":
+ *    - Quando deal é movido do funil "SDR" para um funil específico → ATENDIDO
+ *    - Mudanças de etapa DENTRO de funis específicos são IGNORADAS
+ * 
+ * 3. CÁLCULO DE SLA:
+ *    - Tempo entre entrada no funil "SDR" e movimentação para funil específico
  */
+
+// Etapas válidas do funil principal "SDR" (apenas essas são contabilizadas)
+const VALID_SDR_STAGES = [
+  'tem perfil',
+  'perfil menor',
+  'inconclusivo',
+  'sem perfil',
+];
+
+// Verifica se uma etapa é válida para contabilização
+function isValidSDRStage(stageName: string | null): boolean {
+  if (!stageName) return false;
+  const normalized = stageName.toLowerCase().trim();
+  return VALID_SDR_STAGES.some(valid => normalized.includes(valid));
+}
 
 import { Request, Response } from 'express';
 import { createLead, attendLead, findLeadByPipedriveId, updateLeadStage } from '../services/leadsService.js';
@@ -151,7 +174,8 @@ function normalizeAction(action: string | undefined): string {
 
 /**
  * Fluxo A: Deal criado
- * - Se no funil "SDR" principal → Lead PENDENTE
+ * - Se no funil "SDR" principal COM etapa válida → Lead PENDENTE
+ * - Se no funil "SDR" principal COM etapa inválida → IGNORAR
  * - Se no funil "NOME - SDR" individual → Lead ATENDIDO (SDR já pegou)
  */
 async function handleDealAdded(
@@ -170,6 +194,16 @@ async function handleDealAdded(
 ): Promise<void> {
   try {
     const dealIdStr = dealId.toString();
+    
+    // Se está no funil principal "SDR", verificar se a etapa é válida
+    if (isMainPipeline && !isValidSDRStage(stageName)) {
+      console.log(`⏭️ Deal ${dealIdStr} em etapa "${stageName}" não válida. Ignorando.`);
+      res.status(200).json({ 
+        success: true, 
+        message: `Etapa "${stageName}" não é contabilizada. Ignorado.`
+      });
+      return;
+    }
     
     // Verificar se já existe (idempotência)
     const existing = await findLeadByPipedriveId(dealIdStr);
@@ -225,9 +259,10 @@ async function handleDealAdded(
 
 /**
  * Fluxo B: Deal atualizado
+ * - Se no funil "SDR" com etapa inválida → IGNORAR
  * - Se movido do funil "SDR" para "NOME - SDR" → ATENDIDO (SDR pegou)
- * - Se não existia, cria
- * - Atualiza o stage se mudou
+ * - Se já está em funil específico e muda de etapa → IGNORAR (não faz parte do sistema)
+ * - Se não existia e está em etapa válida, cria
  */
 async function handleDealUpdated(
   dealId: string | number,
@@ -249,8 +284,29 @@ async function handleDealUpdated(
     // Verificar se o lead existe
     let existingLead = await findLeadByPipedriveId(dealIdStr);
     
+    // Se está em funil específico e o lead JÁ FOI ATENDIDO, ignorar mudanças de etapa
+    if (existingLead && existingLead.attended_at && isIndividualPipeline) {
+      console.log(`⏭️ Lead ${dealIdStr} já atendido. Mudança de etapa em funil específico ignorada.`);
+      res.status(200).json({ 
+        success: true, 
+        message: 'Lead já atendido. Mudanças em funil específico são ignoradas.'
+      });
+      return;
+    }
+    
     if (!existingLead) {
-      // Lead não existe, criar
+      // Lead não existe
+      
+      // Se está no funil principal "SDR", verificar se a etapa é válida
+      if (isMainPipeline && !isValidSDRStage(stageName)) {
+        console.log(`⏭️ Deal ${dealIdStr} em etapa "${stageName}" não válida. Ignorando.`);
+        res.status(200).json({ 
+          success: true, 
+          message: `Etapa "${stageName}" não é contabilizada. Ignorado.`
+        });
+        return;
+      }
+      
       console.log(`Lead ${dealIdStr} não encontrado. Criando...`);
       
       const isAttended = isIndividualPipeline;
@@ -283,9 +339,9 @@ async function handleDealUpdated(
       return;
     }
 
-    // Lead existe - verificar se precisa atualizar
+    // Lead existe e ainda NÃO foi atendido
     
-    // Se ainda não foi atendido e agora está em um funil individual, marcar como atendido
+    // Se agora está em um funil individual, marcar como atendido
     if (!existingLead.attended_at && isIndividualPipeline) {
       const updatedLead = await attendLead(
         dealIdStr,
@@ -293,11 +349,6 @@ async function handleDealUpdated(
         sdrName,
         updateTime
       );
-
-      // Atualizar stage também
-      if (stageId) {
-        await updateLeadStage(dealIdStr, stageName, stagePriority);
-      }
 
       console.log(`✅ Lead ${dealIdStr} ATENDIDO por ${sdrName} - SLA calculado!`);
       res.status(200).json({ 
@@ -307,17 +358,35 @@ async function handleDealUpdated(
       });
       return;
     }
-
-    // Só atualizar o stage se mudou
-    if (stageId && existingLead.stage_name !== stageName) {
-      await updateLeadStage(dealIdStr, stageName, stagePriority);
-      console.log(`🔄 Lead ${dealIdStr} - Stage atualizado para: ${stageName}`);
+    
+    // Se está no funil principal e mudou para uma etapa válida, atualizar
+    if (isMainPipeline && isValidSDRStage(stageName)) {
+      if (existingLead.stage_name !== stageName) {
+        await updateLeadStage(dealIdStr, stageName, stagePriority);
+        console.log(`🔄 Lead ${dealIdStr} - Stage atualizado para: ${stageName}`);
+      }
+      res.status(200).json({ 
+        success: true, 
+        message: 'Lead atualizado',
+        lead: existingLead 
+      });
+      return;
+    }
+    
+    // Etapa inválida no funil principal - ignorar
+    if (isMainPipeline && !isValidSDRStage(stageName)) {
+      console.log(`⏭️ Lead ${dealIdStr} movido para etapa "${stageName}" não válida. Ignorando.`);
+      res.status(200).json({ 
+        success: true, 
+        message: `Etapa "${stageName}" não é contabilizada. Ignorado.`
+      });
+      return;
     }
 
-    console.log(`ℹ️ Lead ${dealIdStr} atualizado`);
+    console.log(`ℹ️ Lead ${dealIdStr} - nenhuma ação necessária`);
     res.status(200).json({ 
       success: true, 
-      message: 'Lead atualizado',
+      message: 'Nenhuma ação necessária',
       lead: existingLead 
     });
   } catch (error) {

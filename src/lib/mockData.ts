@@ -64,3 +64,24 @@ export const getPerformanceLabel = (minutes: number): string => {
   if (minutes < 20) return "Rápido";
   return "Lento";
 };
+
+/**
+ * Formata minutos para exibição amigável
+ * Ex: 45 → "45min", 70 → "1h10min", 125 → "2h05min"
+ */
+export const formatTime = (minutes: number | null): string => {
+  if (minutes === null || minutes === undefined) return "-";
+  
+  if (minutes < 60) {
+    return `${minutes}min`;
+  }
+  
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+  
+  return `${hours}h${mins.toString().padStart(2, '0')}min`;
+};
