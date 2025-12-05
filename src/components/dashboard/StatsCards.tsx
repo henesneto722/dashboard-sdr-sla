@@ -70,9 +70,9 @@ export const StatsCards = ({
       title: "Leads Pendentes",
       value: pendingLeads.length.toString(),
       icon: Users,
-      color: pendingLeads.length > 10 ? "text-red-500" : "text-slate-400",
-      bgColor: pendingLeads.length > 10 ? "bg-red-500/15" : "bg-slate-500/15",
-      iconColor: pendingLeads.length > 10 ? "text-red-500" : "text-slate-400",
+      color: "text-slate-400",
+      bgColor: "bg-slate-500/15",
+      iconColor: "text-slate-400",
     },
     {
       title: "Leads Importantes",
