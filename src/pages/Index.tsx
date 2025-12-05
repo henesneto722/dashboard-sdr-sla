@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { calculateSDRPerformance, Lead } from "@/lib/mockData";
 import { fetchLeads, fetchSDRs, fetchImportantPendingLeads } from "@/lib/api";
 import { StatsCards } from "@/components/dashboard/StatsCards";
@@ -28,6 +28,25 @@ const Index = () => {
   const [selectedPeriod, setSelectedPeriod] = useState("30days");
   const [selectedSDR, setSelectedSDR] = useState("all"); // Armazena o sdr_name para exibição
   const [filterByImportant, setFilterByImportant] = useState(false); // filtra apenas leads importantes
+
+  // Ref para scroll automático na tabela
+  const leadsTableRef = useRef<HTMLDivElement>(null);
+
+  // Função para ativar filtro e scroll
+  const handleImportantClick = () => {
+    const newFilterState = !filterByImportant;
+    setFilterByImportant(newFilterState);
+    
+    if (newFilterState && leadsTableRef.current) {
+      // Pequeno delay para garantir que o estado atualizou
+      setTimeout(() => {
+        leadsTableRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    }
+  };
 
   // Carregar dados da API
   useEffect(() => {
@@ -157,7 +176,7 @@ const Index = () => {
                   sdrPerformance={sdrPerformance} 
                   isFilteredBySDR={selectedSDR !== "all"} 
                   importantPendingCount={importantPendingCount}
-                  onImportantClick={() => setFilterByImportant(!filterByImportant)}
+                  onImportantClick={handleImportantClick}
                 />
                 
                 {filterByImportant && (
@@ -182,7 +201,9 @@ const Index = () => {
                 
                 <Timeline leads={filteredLeads} />
                 
-                <LeadsTable leads={filteredLeads} filterByImportant={filterByImportant} />
+                <div ref={leadsTableRef}>
+                  <LeadsTable leads={filteredLeads} filterByImportant={filterByImportant} />
+                </div>
               </>
             )}
           </>
