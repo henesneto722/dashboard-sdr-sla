@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -10,8 +10,10 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Lead, getPerformanceColor, getPerformanceLabel, formatTime } from "@/lib/mockData";
-import { ArrowUpDown, FileText } from "lucide-react";
+import { ArrowUpDown, FileText, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+
+const ITEMS_PER_PAGE = 20;
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -58,6 +60,12 @@ const getProfileColor = (stageName: string | null, isAttended: boolean): { bg: s
 export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps) => {
   const [sortField, setSortField] = useState<SortField>("entered_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset para página 1 quando os leads mudam ou filtro muda
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [leads.length, filterByImportant]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -105,6 +113,16 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
       return aValue < bValue ? 1 : -1;
     }
   });
+
+  // Paginação
+  const totalPages = Math.ceil(sortedLeads.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedLeads = sortedLeads.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
 
   return (
     <Card>
@@ -178,7 +196,7 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedLeads.slice(0, 20).map((lead, index) => {
+              {paginatedLeads.map((lead, index) => {
                 const colorClass = lead.sla_minutes
                   ? getPerformanceColor(lead.sla_minutes)
                   : "muted";
@@ -229,10 +247,66 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
             </TableBody>
           </Table>
         </div>
-        <p className="text-sm text-muted-foreground mt-4">
-          Mostrando {Math.min(20, sortedLeads.length)} de {sortedLeads.length} leads
-          {filterByImportant && " (filtrado por leads importantes)"}
-        </p>
+        {/* Paginação */}
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {startIndex + 1}-{Math.min(endIndex, sortedLeads.length)} de {sortedLeads.length} leads
+            {filterByImportant && " (filtrado por leads importantes)"}
+          </p>
+          
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              {/* Primeira página */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              
+              {/* Página anterior */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              {/* Indicador de página */}
+              <span className="text-sm text-muted-foreground px-3">
+                Página <span className="font-medium text-foreground">{currentPage}</span> de <span className="font-medium text-foreground">{totalPages}</span>
+              </span>
+              
+              {/* Próxima página */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              
+              {/* Última página */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
