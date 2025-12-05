@@ -5,7 +5,8 @@
 import { Router, Request, Response } from 'express';
 import { 
   getSlowestLeads, 
-  getPendingLeads, 
+  getPendingLeads,
+  getImportantPendingLeads,
   getLeadsWithFilters,
   getUniqueSDRs 
 } from '../services/leadsService.js';
@@ -63,6 +64,33 @@ router.get('/pending', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao buscar leads pendentes',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * GET /api/leads/important-pending
+ * Retorna leads importantes pendentes (Tem perfil ou Perfil menor, não atendidos)
+ */
+router.get('/important-pending', async (req: Request, res: Response) => {
+  try {
+    const result = await getImportantPendingLeads();
+    
+    const response: ApiResponse<{ count: number; leads: LeadSLA[] }> = {
+      success: true,
+      data: result,
+      message: `${result.count} leads importantes aguardando atendimento`,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Erro em /leads/important-pending:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar leads importantes pendentes',
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       timestamp: new Date().toISOString(),
     });
@@ -168,6 +196,8 @@ router.get('/:lead_id', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+
 
 
 

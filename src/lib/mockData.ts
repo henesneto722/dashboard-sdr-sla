@@ -13,6 +13,8 @@ export interface Lead {
   sla_minutes: number | null;
   source: string;
   pipeline: string;
+  stage_name: string | null;
+  stage_priority: number | null;
 }
 
 export interface SDRPerformance {

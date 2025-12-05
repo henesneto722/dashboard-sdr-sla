@@ -1,14 +1,22 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, TrendingUp, AlertCircle, Users, Award } from "lucide-react";
+import { Clock, TrendingUp, AlertCircle, Users, Award, AlertTriangle } from "lucide-react";
 import { Lead, SDRPerformance } from "@/lib/mockData";
 
 interface StatsCardsProps {
   leads: Lead[];
   sdrPerformance: SDRPerformance[];
   isFilteredBySDR?: boolean; // true quando um SDR específico está selecionado
+  importantPendingCount?: number; // número de leads importantes pendentes
+  onImportantClick?: () => void; // callback ao clicar no card de leads importantes
 }
 
-export const StatsCards = ({ leads, sdrPerformance, isFilteredBySDR = false }: StatsCardsProps) => {
+export const StatsCards = ({ 
+  leads, 
+  sdrPerformance, 
+  isFilteredBySDR = false,
+  importantPendingCount = 0,
+  onImportantClick
+}: StatsCardsProps) => {
   const attendedLeads = leads.filter(l => l.sla_minutes !== null);
   const pendingLeads = leads.filter(l => l.sla_minutes === null);
   
@@ -62,6 +70,16 @@ export const StatsCards = ({ leads, sdrPerformance, isFilteredBySDR = false }: S
       color: pendingLeads.length > 10 ? "text-danger" : "text-muted-foreground",
       bgColor: pendingLeads.length > 10 ? "bg-danger/10" : "bg-muted/30",
     },
+    {
+      title: "Leads Importantes",
+      value: importantPendingCount.toString(),
+      icon: AlertTriangle,
+      color: importantPendingCount > 0 ? "text-orange-500" : "text-muted-foreground",
+      bgColor: importantPendingCount > 0 ? "bg-orange-500/10" : "bg-muted/30",
+      subtitle: importantPendingCount > 0 ? "Aguardando atendimento" : "Nenhum pendente",
+      clickable: importantPendingCount > 0,
+      onClick: onImportantClick,
+    },
   ];
 
   // Card "Melhor SDR" só aparece quando NÃO está filtrado por SDR individual
@@ -78,9 +96,13 @@ export const StatsCards = ({ leads, sdrPerformance, isFilteredBySDR = false }: S
   ];
 
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 ${isFilteredBySDR ? 'lg:grid-cols-4' : 'lg:grid-cols-5'}`}>
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 ${isFilteredBySDR ? 'lg:grid-cols-5' : 'lg:grid-cols-6'}`}>
       {stats.map((stat, index) => (
-        <Card key={index} className="border-border hover:shadow-lg transition-shadow">
+        <Card 
+          key={index} 
+          className={`border-border hover:shadow-lg transition-shadow ${stat.clickable ? 'cursor-pointer hover:border-orange-500/50' : ''}`}
+          onClick={stat.clickable ? stat.onClick : undefined}
+        >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>

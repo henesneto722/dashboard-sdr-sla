@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { calculateSDRPerformance, Lead } from "@/lib/mockData";
-import { fetchLeads, fetchSDRs } from "@/lib/api";
+import { fetchLeads, fetchSDRs, fetchImportantPendingLeads } from "@/lib/api";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { SDRRanking } from "@/components/dashboard/SDRRanking";
 import { LeadsTable } from "@/components/dashboard/LeadsTable";
@@ -20,12 +20,14 @@ const Index = () => {
   // Estado dos dados
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [sdrsInfo, setSDRsInfo] = useState<SDRInfo[]>([]);
+  const [importantPendingCount, setImportantPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filtros
   const [selectedPeriod, setSelectedPeriod] = useState("30days");
   const [selectedSDR, setSelectedSDR] = useState("all"); // Armazena o sdr_name para exibição
+  const [filterByImportant, setFilterByImportant] = useState(false); // filtra apenas leads importantes
 
   // Carregar dados da API
   useEffect(() => {
@@ -37,6 +39,10 @@ const Index = () => {
         // Buscar SDRs primeiro para ter o mapeamento
         const sdrsData = await fetchSDRs();
         setSDRsInfo(sdrsData || []);
+        
+        // Buscar leads importantes pendentes
+        const importantData = await fetchImportantPendingLeads();
+        setImportantPendingCount(importantData?.count || 0);
         
         // Encontrar o sdr_id correspondente ao nome selecionado
         let sdrIdToFilter: string | undefined;
@@ -57,6 +63,7 @@ const Index = () => {
         setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
         setAllLeads([]);
         setSDRsInfo([]);
+        setImportantPendingCount(0);
       } finally {
         setLoading(false);
       }
@@ -145,7 +152,27 @@ const Index = () => {
               </div>
             ) : (
               <>
-                <StatsCards leads={filteredLeads} sdrPerformance={sdrPerformance} isFilteredBySDR={selectedSDR !== "all"} />
+                <StatsCards 
+                  leads={filteredLeads} 
+                  sdrPerformance={sdrPerformance} 
+                  isFilteredBySDR={selectedSDR !== "all"} 
+                  importantPendingCount={importantPendingCount}
+                  onImportantClick={() => setFilterByImportant(!filterByImportant)}
+                />
+                
+                {filterByImportant && (
+                  <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg flex items-center justify-between">
+                    <span className="text-orange-600 font-medium">
+                      🔍 Filtrando apenas leads importantes (Tem perfil / Perfil menor)
+                    </span>
+                    <button 
+                      onClick={() => setFilterByImportant(false)}
+                      className="text-orange-600 hover:text-orange-700 text-sm underline"
+                    >
+                      Limpar filtro
+                    </button>
+                  </div>
+                )}
                 
                 <SDRRanking sdrPerformance={sdrPerformance} />
                 
@@ -155,7 +182,7 @@ const Index = () => {
                 
                 <Timeline leads={filteredLeads} />
                 
-                <LeadsTable leads={filteredLeads} />
+                <LeadsTable leads={filteredLeads} filterByImportant={filterByImportant} />
               </>
             )}
           </>

@@ -352,6 +352,32 @@ export async function getPendingLeads(limit: number = 50): Promise<LeadSLA[]> {
 }
 
 /**
+ * GET /leads/important-pending - Leads importantes pendentes
+ * (Tem perfil ou Perfil menor, sem attended_at, últimos 30 dias)
+ */
+export async function getImportantPendingLeads(): Promise<{ count: number; leads: LeadSLA[] }> {
+  const thirtyDaysAgo = getThirtyDaysAgo();
+
+  const { data: leads, error } = await supabase
+    .from('leads_sla')
+    .select('*')
+    .gte('entered_at', thirtyDaysAgo)
+    .is('attended_at', null)
+    .in('stage_name', ['Tem perfil', 'Perfil menor', 'TEM PERFIL', 'PERFIL MENOR'])
+    .order('stage_priority', { ascending: true })
+    .order('entered_at', { ascending: true });
+
+  if (error) {
+    throw new Error(`Erro ao buscar leads importantes pendentes: ${error.message}`);
+  }
+
+  return {
+    count: leads?.length || 0,
+    leads: leads || [],
+  };
+}
+
+/**
  * GET /leads/detail - Detalhes de leads com filtros
  */
 export async function getLeadsWithFilters(filters: LeadsQueryFilters): Promise<LeadSLA[]> {

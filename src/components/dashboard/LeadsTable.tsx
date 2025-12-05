@@ -15,11 +15,32 @@ import { Button } from "@/components/ui/button";
 
 interface LeadsTableProps {
   leads: Lead[];
+  filterByImportant?: boolean; // filtra apenas leads importantes
 }
 
-type SortField = "lead_name" | "sdr_name" | "entered_at" | "sla_minutes";
+type SortField = "lead_name" | "sdr_name" | "entered_at" | "sla_minutes" | "stage_name";
 
-export const LeadsTable = ({ leads }: LeadsTableProps) => {
+// Helper para cor do perfil
+const getProfileColor = (stageName: string | null): { bg: string; text: string; border: string } => {
+  const stage = (stageName || '').toLowerCase();
+  
+  if (stage.includes('tem perfil') || stage === 'tem perfil') {
+    return { bg: 'bg-red-500/10', text: 'text-red-600', border: 'border-red-500/30' };
+  }
+  if (stage.includes('perfil menor') || stage === 'perfil menor') {
+    return { bg: 'bg-orange-500/10', text: 'text-orange-600', border: 'border-orange-500/30' };
+  }
+  if (stage.includes('inconclusivo') || stage === 'inconclusivo') {
+    return { bg: 'bg-slate-500/10', text: 'text-slate-500', border: 'border-slate-500/30' };
+  }
+  if (stage.includes('sem perfil') || stage === 'sem perfil') {
+    return { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' };
+  }
+  // Default para outros stages
+  return { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/30' };
+};
+
+export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps) => {
   const [sortField, setSortField] = useState<SortField>("entered_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -43,7 +64,15 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
     }
   };
 
-  const sortedLeads = [...leads].sort((a, b) => {
+  // Filtrar leads importantes se necessário
+  const filteredLeads = filterByImportant 
+    ? leads.filter(lead => {
+        const stage = (lead.stage_name || '').toLowerCase();
+        return stage.includes('tem perfil') || stage.includes('perfil menor');
+      })
+    : leads;
+
+  const sortedLeads = [...filteredLeads].sort((a, b) => {
     let aValue: any = a[sortField];
     let bValue: any = b[sortField];
 
@@ -113,6 +142,17 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                   <Button
                     variant="ghost"
                     size="sm"
+                    onClick={() => handleSort("stage_name")}
+                    className="font-semibold"
+                  >
+                    Perfil
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleSort("sla_minutes")}
                     className="font-semibold"
                   >
@@ -149,6 +189,15 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                       {lead.attended_at ? formatDate(lead.attended_at) : "-"}
                     </TableCell>
                     <TableCell>
+                      {lead.stage_name ? (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getProfileColor(lead.stage_name).bg} ${getProfileColor(lead.stage_name).text} ${getProfileColor(lead.stage_name).border}`}>
+                          {lead.stage_name}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant={getBadgeVariant()}>
                         {lead.sla_minutes ? `${lead.sla_minutes}min - ${label}` : "Pendente"}
                       </Badge>
@@ -160,7 +209,8 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
           </Table>
         </div>
         <p className="text-sm text-muted-foreground mt-4">
-          Mostrando 20 de {leads.length} leads
+          Mostrando {Math.min(20, sortedLeads.length)} de {sortedLeads.length} leads
+          {filterByImportant && " (filtrado por leads importantes)"}
         </p>
       </CardContent>
     </Card>

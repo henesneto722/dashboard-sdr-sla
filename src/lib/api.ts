@@ -111,3 +111,12 @@ export async function fetchSDRs(): Promise<{ sdr_id: string; sdr_name: string }[
   return json.data;
 }
 
+/**
+ * Busca leads importantes pendentes (Tem perfil ou Perfil menor, não atendidos)
+ */
+export async function fetchImportantPendingLeads(): Promise<{ count: number; leads: Lead[] }> {
+  const response = await fetch(`${API_BASE_URL}/api/leads/important-pending`);
+  const json: ApiResponse<{ count: number; leads: Lead[] }> = await response.json();
+  return json.data;
+}
+
