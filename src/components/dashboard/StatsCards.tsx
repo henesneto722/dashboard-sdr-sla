@@ -47,35 +47,40 @@ export const StatsCards = ({
       value: formatTime(averageTime),
       icon: Clock,
       color: getColorClass(averageTime),
-      bgColor: averageTime <= 30 ? "bg-success/10" : averageTime <= 60 ? "bg-warning/10" : "bg-danger/10",
+      bgColor: averageTime <= 30 ? "bg-emerald-500/15" : averageTime <= 60 ? "bg-amber-500/15" : "bg-red-500/15",
+      iconColor: averageTime <= 30 ? "text-emerald-500" : averageTime <= 60 ? "text-amber-500" : "text-red-500",
     },
     {
       title: "Atendidos Hoje",
       value: todayLeads.toString(),
       icon: TrendingUp,
-      color: "text-primary",
-      bgColor: "bg-primary/10",
+      color: "text-blue-500",
+      bgColor: "bg-blue-500/15",
+      iconColor: "text-blue-500",
     },
     {
       title: "Pior Tempo",
       value: formatTime(worstTime),
       icon: AlertCircle,
-      color: "text-danger",
-      bgColor: "bg-danger/10",
+      color: "text-red-500",
+      bgColor: "bg-red-500/15",
+      iconColor: "text-red-500",
     },
     {
       title: "Leads Pendentes",
       value: pendingLeads.length.toString(),
       icon: Users,
-      color: pendingLeads.length > 10 ? "text-danger" : "text-muted-foreground",
-      bgColor: pendingLeads.length > 10 ? "bg-danger/10" : "bg-muted/30",
+      color: pendingLeads.length > 10 ? "text-red-500" : "text-slate-400",
+      bgColor: pendingLeads.length > 10 ? "bg-red-500/15" : "bg-slate-500/15",
+      iconColor: pendingLeads.length > 10 ? "text-red-500" : "text-slate-400",
     },
     {
       title: "Leads Importantes",
       value: importantPendingCount.toString(),
       icon: AlertTriangle,
-      color: importantPendingCount > 0 ? "text-orange-500" : "text-muted-foreground",
-      bgColor: importantPendingCount > 0 ? "bg-orange-500/10" : "bg-muted/30",
+      color: importantPendingCount > 0 ? "text-orange-500" : "text-slate-400",
+      bgColor: importantPendingCount > 0 ? "bg-orange-500/15" : "bg-slate-500/15",
+      iconColor: importantPendingCount > 0 ? "text-orange-500" : "text-slate-400",
       subtitle: importantPendingCount > 0 ? "Aguardando atendimento" : "Nenhum pendente",
       clickable: importantPendingCount > 0,
       onClick: onImportantClick,
@@ -89,8 +94,9 @@ export const StatsCards = ({
       title: "Melhor SDR",
       value: sdrPerformance[0]?.sdr_name.split(" ")[0] || "N/A",
       icon: Award,
-      color: "text-success",
-      bgColor: "bg-success/10",
+      color: "text-emerald-500",
+      bgColor: "bg-emerald-500/15",
+      iconColor: "text-emerald-500",
       subtitle: sdrPerformance[0] ? formatTime(sdrPerformance[0].average_time) : "",
     },
   ];
@@ -101,23 +107,38 @@ export const StatsCards = ({
         <Card 
           key={index} 
           className={`
+            relative overflow-hidden
             border-border hover:shadow-lg transition-all duration-300
-            dark:bg-card/80 dark:backdrop-blur-sm dark:hover-glow
+            dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-900/90
+            dark:border-slate-700/50 dark:hover:border-slate-600/50
             ${stat.clickable ? 'cursor-pointer hover:border-orange-500/50 dark:hover:border-orange-400/50' : ''}
           `}
           onClick={stat.clickable ? stat.onClick : undefined}
         >
-          <CardContent className="p-6">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">{stat.title}</p>
-                <p className={`text-3xl font-bold ${stat.color} dark:drop-shadow-[0_0_8px_currentColor]`}>{stat.value}</p>
+          <CardContent className="p-5">
+            {/* Layout principal */}
+            <div className="flex items-center justify-between gap-4">
+              {/* Texto */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-muted-foreground mb-1 truncate">
+                  {stat.title}
+                </p>
+                <p className={`text-2xl font-bold ${stat.color} truncate`}>
+                  {stat.value}
+                </p>
                 {stat.subtitle && (
-                  <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                    {stat.subtitle}
+                  </p>
                 )}
               </div>
-              <div className={`p-3 rounded-xl ${stat.bgColor} dark:${stat.bgColor.replace('/10', '/20')} transition-colors`}>
-                <stat.icon className={`h-6 w-6 ${stat.color}`} />
+              
+              {/* Ícone */}
+              <div className={`
+                flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl
+                ${stat.bgColor}
+              `}>
+                <stat.icon className={`h-6 w-6 ${stat.iconColor || stat.color}`} strokeWidth={2} />
               </div>
             </div>
           </CardContent>
