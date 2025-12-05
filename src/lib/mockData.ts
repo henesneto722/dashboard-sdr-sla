@@ -147,21 +147,10 @@ export const formatTime = (minutes: number | null): string => {
   const totalHours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   
-  // Mais de 60 horas (3600 minutos): mostrar dias e horas
+  // Mais de 60 horas (3600 minutos): mostrar apenas dias
   if (totalHours >= 60) {
     const days = Math.floor(totalHours / 24);
-    const hours = totalHours % 24;
-    
-    if (hours === 0 && mins === 0) {
-      return `${days}d`;
-    }
-    if (mins === 0) {
-      return `${days}d${hours}h`;
-    }
-    if (hours === 0) {
-      return `${days}d${mins}min`;
-    }
-    return `${days}d${hours}h${mins.toString().padStart(2, '0')}min`;
+    return `${days}d`;
   }
   
   // Entre 60 minutos e 60 horas: mostrar horas e minutos
