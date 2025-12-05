@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { calculateSDRPerformance, Lead } from "@/lib/mockData";
 import { fetchLeads, fetchSDRs, fetchImportantPendingLeads } from "@/lib/api";
 import { StatsCards } from "@/components/dashboard/StatsCards";
@@ -8,7 +8,9 @@ import { PerformanceCharts } from "@/components/dashboard/PerformanceCharts";
 import { Timeline } from "@/components/dashboard/Timeline";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity, Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
+import { Toaster } from "sonner";
 
 // Interface para SDR com id e nome
 interface SDRInfo {
@@ -31,6 +33,14 @@ const Index = () => {
 
   // Ref para scroll automático na tabela
   const leadsTableRef = useRef<HTMLDivElement>(null);
+  
+  // Ref para armazenar filtros atuais (evita dependência circular)
+  const filtersRef = useRef({ selectedPeriod, selectedSDR });
+  
+  // Atualizar ref quando filtros mudam
+  useEffect(() => {
+    filtersRef.current = { selectedPeriod, selectedSDR };
+  }, [selectedPeriod, selectedSDR]);
 
   // Função para ativar filtro e scroll
   const handleImportantClick = () => {
@@ -48,7 +58,46 @@ const Index = () => {
     }
   };
 
-  // Carregar dados da API
+  // Função de refresh (usada pelo realtime e polling)
+  const refreshData = useCallback(async () => {
+    try {
+      const { selectedPeriod: period, selectedSDR: sdr } = filtersRef.current;
+      
+      // Buscar SDRs
+      const sdrsData = await fetchSDRs();
+      setSDRsInfo(sdrsData || []);
+      
+      // Buscar leads importantes pendentes
+      const importantData = await fetchImportantPendingLeads();
+      setImportantPendingCount(importantData?.count || 0);
+      
+      // Encontrar o sdr_id correspondente ao nome selecionado
+      let sdrIdToFilter: string | undefined;
+      if (sdr !== 'all' && sdrsData) {
+        const sdrInfo = sdrsData.find((s: SDRInfo) => s.sdr_name === sdr);
+        sdrIdToFilter = sdrInfo?.sdr_id;
+      }
+      
+      // Buscar leads com o filtro correto
+      const leadsData = await fetchLeads({ 
+        period: period, 
+        sdr_id: sdrIdToFilter 
+      });
+      
+      setAllLeads(leadsData || []);
+      setError(null);
+    } catch (err) {
+      console.error('Erro ao atualizar dados:', err);
+    }
+  }, []);
+
+  // Hook de Realtime + Polling
+  const { isRealtimeEnabled, forceRefresh } = useRealtimeLeads({
+    onRefresh: refreshData,
+    pollingInterval: 60000, // 60 segundos
+  });
+
+  // Carregar dados iniciais
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -117,15 +166,55 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Toast notifications */}
+      <Toaster position="top-right" richColors closeButton />
+      
       <header className="bg-card border-b border-border shadow-sm">
         <div className="container mx-auto px-6 py-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <Activity className="h-8 w-8 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <Activity className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Dashboard SDR</h1>
+                <p className="text-muted-foreground">Monitoramento de Tempo de Atendimento</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">Dashboard SDR</h1>
-              <p className="text-muted-foreground">Monitoramento de Tempo de Atendimento</p>
+            
+            {/* Status Realtime + Refresh */}
+            <div className="flex items-center gap-3">
+              {/* Indicador de conexão */}
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+                isRealtimeEnabled 
+                  ? 'bg-green-500/10 text-green-600' 
+                  : 'bg-yellow-500/10 text-yellow-600'
+              }`}>
+                {isRealtimeEnabled ? (
+                  <>
+                    <Wifi className="h-4 w-4" />
+                    <span className="hidden sm:inline">Tempo real</span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="h-4 w-4" />
+                    <span className="hidden sm:inline">Polling 60s</span>
+                  </>
+                )}
+              </div>
+              
+              {/* Botão de refresh manual */}
+              <button
+                onClick={forceRefresh}
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
+                title="Atualizar dados"
+              >
+                <RefreshCw className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+              </button>
             </div>
           </div>
         </div>
@@ -201,7 +290,7 @@ const Index = () => {
                 
                 <Timeline leads={filteredLeads} />
                 
-                <div ref={leadsTableRef}>
+                <div ref={leadsTableRef} data-leads-table>
                   <LeadsTable leads={filteredLeads} filterByImportant={filterByImportant} />
                 </div>
               </>
