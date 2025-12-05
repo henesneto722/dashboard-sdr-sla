@@ -10,7 +10,6 @@ import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
 import { Activity, Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
-import { Toaster } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 // Interface para SDR com id e nome
@@ -167,9 +166,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Toast notifications */}
-      <Toaster position="top-right" richColors closeButton />
-      
       <header className="bg-card border-b border-border shadow-sm dark:header-gradient">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
