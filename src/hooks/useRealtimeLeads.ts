@@ -110,12 +110,7 @@ export function useRealtimeLeads({
       )
       .subscribe((status) => {
         console.log('📡 Status do Realtime:', status);
-        if (status === 'SUBSCRIBED') {
-          toast.success('🔴 Conectado em tempo real', {
-            description: 'Dashboard atualiza automaticamente',
-            duration: 3000,
-          });
-        }
+        // Notificação de conexão removida para evitar duplicação
       });
 
     channelRef.current = channel;
