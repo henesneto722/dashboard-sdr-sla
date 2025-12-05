@@ -1,5 +1,6 @@
 /**
  * Service para operações CRUD de leads no Supabase
+ * Otimizado para 10.000+ leads com cache e paginação
  */
 
 import { supabase } from '../config/database.js';
@@ -18,6 +19,7 @@ import {
   formatHourRange,
   getSLAStatus 
 } from '../utils/dateUtils.js';
+import { cache, CACHE_KEYS, CACHE_TTL } from './cacheService.js';
 
 // ============================================
 // Operações CRUD básicas
@@ -148,10 +150,19 @@ export async function updateLeadStage(
 
 /**
  * GET /metrics/general - Métricas gerais da operação
+ * Com cache de 30 segundos para evitar recálculos frequentes
  */
 export async function getGeneralMetrics(): Promise<GeneralMetrics> {
+  // Verificar cache
+  const cached = cache.get<GeneralMetrics>(CACHE_KEYS.GENERAL_METRICS);
+  if (cached) {
+    console.log('📦 Cache hit: general metrics');
+    return cached;
+  }
+
   const thirtyDaysAgo = getThirtyDaysAgo();
 
+  // Query otimizada: seleciona apenas campos necessários
   const { data: leads, error } = await supabase
     .from('leads_sla')
     .select('sla_minutes, attended_at')
@@ -164,7 +175,7 @@ export async function getGeneralMetrics(): Promise<GeneralMetrics> {
   const attendedLeads = leads?.filter(l => l.sla_minutes !== null) || [];
   const slaValues = attendedLeads.map(l => l.sla_minutes as number);
 
-  return {
+  const metrics: GeneralMetrics = {
     total_leads: leads?.length || 0,
     attended_leads: attendedLeads.length,
     pending_leads: (leads?.length || 0) - attendedLeads.length,
@@ -174,12 +185,25 @@ export async function getGeneralMetrics(): Promise<GeneralMetrics> {
     max_sla_minutes: slaValues.length > 0 ? Math.max(...slaValues) : 0,
     min_sla_minutes: slaValues.length > 0 ? Math.min(...slaValues) : 0,
   };
+
+  // Salvar no cache
+  cache.set(CACHE_KEYS.GENERAL_METRICS, metrics, CACHE_TTL.METRICS);
+  
+  return metrics;
 }
 
 /**
  * GET /metrics/ranking - Ranking de SDRs por tempo médio
+ * Com cache de 60 segundos
  */
 export async function getSDRRanking(): Promise<SDRPerformance[]> {
+  // Verificar cache
+  const cached = cache.get<SDRPerformance[]>(CACHE_KEYS.SDR_RANKING);
+  if (cached) {
+    console.log('📦 Cache hit: SDR ranking');
+    return cached;
+  }
+
   const thirtyDaysAgo = getThirtyDaysAgo();
 
   const { data: leads, error } = await supabase
@@ -218,6 +242,9 @@ export async function getSDRRanking(): Promise<SDRPerformance[]> {
       leads_attended: data.count,
     }))
     .sort((a, b) => a.average_time - b.average_time);
+
+  // Salvar no cache
+  cache.set(CACHE_KEYS.SDR_RANKING, ranking, CACHE_TTL.RANKING);
 
   return ranking;
 }
@@ -414,6 +441,82 @@ export async function getLeadsWithFilters(filters: LeadsQueryFilters): Promise<L
   }
 
   return leads || [];
+}
+
+/**
+ * GET /leads/paginated - Leads com paginação real (otimizado para 10k+ leads)
+ */
+export async function getLeadsPaginated(filters: LeadsQueryFilters): Promise<{
+  data: LeadSLA[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}> {
+  const page = filters.page || 1;
+  const limit = Math.min(filters.limit || 50, 100); // Max 100 por página
+  const offset = (page - 1) * limit;
+
+  // Aplicar filtro de período
+  const startDate = periodToDate(filters.period || '30days');
+
+  // Query para contar total (usa índice)
+  let countQuery = supabase
+    .from('leads_sla')
+    .select('id', { count: 'exact', head: true });
+
+  if (startDate) {
+    countQuery = countQuery.gte('entered_at', startDate);
+  }
+  if (filters.sdr_id && filters.sdr_id !== 'all') {
+    countQuery = countQuery.eq('sdr_id', filters.sdr_id);
+  }
+
+  const { count: total, error: countError } = await countQuery;
+
+  if (countError) {
+    throw new Error(`Erro ao contar leads: ${countError.message}`);
+  }
+
+  // Query para buscar dados paginados
+  let dataQuery = supabase
+    .from('leads_sla')
+    .select('*');
+
+  if (startDate) {
+    dataQuery = dataQuery.gte('entered_at', startDate);
+  }
+  if (filters.sdr_id && filters.sdr_id !== 'all') {
+    dataQuery = dataQuery.eq('sdr_id', filters.sdr_id);
+  }
+
+  dataQuery = dataQuery
+    .order('entered_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  const { data: leads, error: dataError } = await dataQuery;
+
+  if (dataError) {
+    throw new Error(`Erro ao buscar leads: ${dataError.message}`);
+  }
+
+  const totalPages = Math.ceil((total || 0) / limit);
+
+  return {
+    data: leads || [],
+    pagination: {
+      page,
+      limit,
+      total: total || 0,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
+  };
 }
 
 /**

@@ -8,6 +8,7 @@ import {
   getPendingLeads,
   getImportantPendingLeads,
   getLeadsWithFilters,
+  getLeadsPaginated,
   getUniqueSDRs 
 } from '../services/leadsService.js';
 import { ApiResponse, LeadSLA, LeadsQueryFilters } from '../types/index.js';
@@ -126,6 +127,38 @@ router.get('/detail', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao buscar leads',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * GET /api/leads/paginated
+ * Retorna leads com paginação real (otimizado para 10k+ leads)
+ * Query params: period, sdr_id, page, limit
+ */
+router.get('/paginated', async (req: Request, res: Response) => {
+  try {
+    const filters: LeadsQueryFilters = {
+      period: (req.query.period as string) as LeadsQueryFilters['period'] || '30days',
+      sdr_id: req.query.sdr_id as string,
+      page: parseInt(req.query.page as string) || 1,
+      limit: parseInt(req.query.limit as string) || 50,
+    };
+
+    const result = await getLeadsPaginated(filters);
+    
+    res.json({
+      success: true,
+      ...result,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Erro em /leads/paginated:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar leads paginados',
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       timestamp: new Date().toISOString(),
     });

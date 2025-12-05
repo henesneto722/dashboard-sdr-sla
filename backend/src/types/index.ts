@@ -155,6 +155,33 @@ export interface LeadsQueryFilters {
   sdr_id?: string;
   limit?: number;
   offset?: number;
+  page?: number;
+}
+
+// ============================================
+// Resposta Paginada
+// ============================================
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  };
+}
+
+// ============================================
+// Cache de Métricas
+// ============================================
+
+export interface CachedMetrics {
+  data: GeneralMetrics;
+  cachedAt: number;
+  expiresAt: number;
 }
 
 
