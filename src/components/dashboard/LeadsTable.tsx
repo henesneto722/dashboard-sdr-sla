@@ -20,6 +20,17 @@ interface LeadsTableProps {
 
 type SortField = "lead_name" | "sdr_name" | "entered_at" | "sla_minutes" | "stage_name";
 
+// Mapeamento de nomes de stages para textos mais amigáveis
+const getDisplayName = (stageName: string | null): string => {
+  if (!stageName) return '-';
+  const stage = stageName.toLowerCase();
+  
+  // Mapear "Qualificado" para "Atendido"
+  if (stage.includes('qualificado')) return 'Atendido';
+  
+  return stageName;
+};
+
 // Helper para cor do perfil
 const getProfileColor = (stageName: string | null): { bg: string; text: string; border: string } => {
   const stage = (stageName || '').toLowerCase();
@@ -35,6 +46,10 @@ const getProfileColor = (stageName: string | null): { bg: string; text: string; 
   }
   if (stage.includes('sem perfil') || stage === 'sem perfil') {
     return { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' };
+  }
+  // "Qualificado" / "Atendido" - cor verde de sucesso
+  if (stage.includes('qualificado')) {
+    return { bg: 'bg-green-500/10', text: 'text-green-600', border: 'border-green-500/30' };
   }
   // Default para outros stages
   return { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/30' };
@@ -191,7 +206,7 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
                     <TableCell>
                       {lead.stage_name ? (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getProfileColor(lead.stage_name).bg} ${getProfileColor(lead.stage_name).text} ${getProfileColor(lead.stage_name).border}`}>
-                          {lead.stage_name}
+                          {getDisplayName(lead.stage_name)}
                         </span>
                       ) : (
                         <span className="text-muted-foreground text-xs">-</span>
