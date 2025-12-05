@@ -27,9 +27,14 @@ const VALID_SDR_STAGES = [
 
 // Verifica se uma etapa é válida para contabilização
 function isValidSDRStage(stageName: string | null): boolean {
-  if (!stageName) return false;
+  if (!stageName) {
+    console.log('⚠️ isValidSDRStage: stageName é null/undefined');
+    return false;
+  }
   const normalized = stageName.toLowerCase().trim();
-  return VALID_SDR_STAGES.some(valid => normalized.includes(valid));
+  const isValid = VALID_SDR_STAGES.some(valid => normalized.includes(valid));
+  console.log(`🔍 isValidSDRStage: "${stageName}" → "${normalized}" → válido: ${isValid}`);
+  return isValid;
 }
 
 import { Request, Response } from 'express';
