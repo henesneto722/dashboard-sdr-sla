@@ -1,18 +1,36 @@
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lead, getPerformanceColor, formatTime } from "@/lib/mockData";
-import { Clock } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+const ITEMS_PER_PAGE = 15;
 
 interface TimelineProps {
   leads: Lead[];
 }
 
 export const Timeline = ({ leads }: TimelineProps) => {
-  const attendedLeads = leads
-    .filter(l => l.sla_minutes !== null)
-    .slice(0, 15)
-    .sort((a, b) => (b.sla_minutes || 0) - (a.sla_minutes || 0));
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const maxTime = Math.max(...attendedLeads.map(l => l.sla_minutes || 0));
+  // Todos os leads atendidos, ordenados por tempo (maior primeiro)
+  const allAttendedLeads = useMemo(() => {
+    return leads
+      .filter(l => l.sla_minutes !== null)
+      .sort((a, b) => (b.sla_minutes || 0) - (a.sla_minutes || 0));
+  }, [leads]);
+
+  // Paginação
+  const totalPages = Math.ceil(allAttendedLeads.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedLeads = allAttendedLeads.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const maxTime = Math.max(...allAttendedLeads.map(l => l.sla_minutes || 0), 1);
 
   return (
     <Card className="mb-8">
@@ -24,7 +42,7 @@ export const Timeline = ({ leads }: TimelineProps) => {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {attendedLeads.map((lead) => {
+          {paginatedLeads.map((lead) => {
             const widthPercentage = ((lead.sla_minutes || 0) / maxTime) * 100;
             const colorClass = getPerformanceColor(lead.sla_minutes || 0);
             
@@ -60,6 +78,61 @@ export const Timeline = ({ leads }: TimelineProps) => {
               </div>
             );
           })}
+        </div>
+
+        {/* Paginação */}
+        <div className="flex items-center justify-between mt-4 pt-4 border-t">
+          <p className="text-sm text-muted-foreground">
+            Mostrando {startIndex + 1}-{Math.min(endIndex, allAttendedLeads.length)} de {allAttendedLeads.length} atendimentos
+          </p>
+          
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <span className="text-sm text-muted-foreground px-3">
+                Página <span className="font-medium text-foreground">{currentPage}</span> de <span className="font-medium text-foreground">{totalPages}</span>
+              </span>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => goToPage(totalPages)}
+                disabled={currentPage === totalPages}
+                className="h-8 w-8 p-0"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
