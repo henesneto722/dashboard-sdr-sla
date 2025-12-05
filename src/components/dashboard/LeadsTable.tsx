@@ -21,18 +21,22 @@ interface LeadsTableProps {
 type SortField = "lead_name" | "sdr_name" | "entered_at" | "sla_minutes" | "stage_name";
 
 // Mapeamento de nomes de stages para textos mais amigáveis
-const getDisplayName = (stageName: string | null): string => {
-  if (!stageName) return '-';
-  const stage = stageName.toLowerCase();
+const getDisplayName = (stageName: string | null, isAttended: boolean): string => {
+  // Se foi atendido (está em funil específico), sempre mostrar "Atendido"
+  if (isAttended) return 'Atendido';
   
-  // Mapear "Qualificado" para "Atendido"
-  if (stage.includes('qualificado')) return 'Atendido';
+  if (!stageName) return '-';
   
   return stageName;
 };
 
 // Helper para cor do perfil
-const getProfileColor = (stageName: string | null): { bg: string; text: string; border: string } => {
+const getProfileColor = (stageName: string | null, isAttended: boolean): { bg: string; text: string; border: string } => {
+  // Se foi atendido, sempre verde
+  if (isAttended) {
+    return { bg: 'bg-green-500/10', text: 'text-green-600', border: 'border-green-500/30' };
+  }
+  
   const stage = (stageName || '').toLowerCase();
   
   if (stage.includes('tem perfil') || stage === 'tem perfil') {
@@ -47,11 +51,7 @@ const getProfileColor = (stageName: string | null): { bg: string; text: string; 
   if (stage.includes('sem perfil') || stage === 'sem perfil') {
     return { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' };
   }
-  // "Qualificado" / "Atendido" - cor verde de sucesso
-  if (stage.includes('qualificado')) {
-    return { bg: 'bg-green-500/10', text: 'text-green-600', border: 'border-green-500/30' };
-  }
-  // Default para outros stages
+  // Default para pendentes
   return { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/30' };
 };
 
@@ -204,13 +204,19 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
                       {lead.attended_at ? formatDate(lead.attended_at) : "-"}
                     </TableCell>
                     <TableCell>
-                      {lead.stage_name ? (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getProfileColor(lead.stage_name).bg} ${getProfileColor(lead.stage_name).text} ${getProfileColor(lead.stage_name).border}`}>
-                          {getDisplayName(lead.stage_name)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                      )}
+                      {(() => {
+                        const isAttended = lead.attended_at !== null;
+                        const colors = getProfileColor(lead.stage_name, isAttended);
+                        const displayText = getDisplayName(lead.stage_name, isAttended);
+                        
+                        return displayText !== '-' ? (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>
+                            {displayText}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       <Badge variant={getBadgeVariant()}>
