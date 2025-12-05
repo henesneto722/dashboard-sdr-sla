@@ -134,21 +134,40 @@ export const getPerformanceLabel = (minutes: number): string => {
 
 /**
  * Formata minutos para exibição amigável
- * Ex: 45 → "45min", 70 → "1h10min", 125 → "2h05min"
+ * Ex: 45 → "45min", 70 → "1h10min", 3700 → "2d13h40min"
  */
 export const formatTime = (minutes: number | null): string => {
   if (minutes === null || minutes === undefined) return "-";
   
+  // Menos de 60 minutos: mostrar apenas minutos
   if (minutes < 60) {
     return `${minutes}min`;
   }
   
-  const hours = Math.floor(minutes / 60);
+  const totalHours = Math.floor(minutes / 60);
   const mins = minutes % 60;
   
-  if (mins === 0) {
-    return `${hours}h`;
+  // Mais de 60 horas (3600 minutos): mostrar dias e horas
+  if (totalHours >= 60) {
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    
+    if (hours === 0 && mins === 0) {
+      return `${days}d`;
+    }
+    if (mins === 0) {
+      return `${days}d${hours}h`;
+    }
+    if (hours === 0) {
+      return `${days}d${mins}min`;
+    }
+    return `${days}d${hours}h${mins.toString().padStart(2, '0')}min`;
   }
   
-  return `${hours}h${mins.toString().padStart(2, '0')}min`;
+  // Entre 60 minutos e 60 horas: mostrar horas e minutos
+  if (mins === 0) {
+    return `${totalHours}h`;
+  }
+  
+  return `${totalHours}h${mins.toString().padStart(2, '0')}min`;
 };
