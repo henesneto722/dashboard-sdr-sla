@@ -50,19 +50,86 @@ export const calculateSDRPerformance = (leads: Lead[]): SDRPerformance[] => {
 };
 
 /**
- * Retorna a cor de performance baseada no tempo em minutos
+ * Interface para thresholds dinâmicos
+ */
+export interface PerformanceThresholds {
+  good: number;      // Limite para "Bom" (percentil 33)
+  moderate: number;  // Limite para "Moderado" (percentil 66)
+}
+
+// Thresholds padrão (usados quando não há dados suficientes)
+const DEFAULT_THRESHOLDS: PerformanceThresholds = {
+  good: 15,
+  moderate: 30,
+};
+
+// Cache dos thresholds calculados
+let cachedThresholds: PerformanceThresholds | null = null;
+
+/**
+ * Calcula thresholds dinâmicos baseados nos percentis dos dados reais
+ * Percentil 33 = Bom, Percentil 66 = Moderado, Acima = Crítico
+ */
+export const calculateThresholds = (leads: Lead[]): PerformanceThresholds => {
+  const times = leads
+    .filter(l => l.sla_minutes !== null && l.sla_minutes > 0)
+    .map(l => l.sla_minutes as number)
+    .sort((a, b) => a - b);
+  
+  // Mínimo de 5 leads para calcular thresholds dinâmicos
+  if (times.length < 5) {
+    return DEFAULT_THRESHOLDS;
+  }
+  
+  // Calcula percentis
+  const percentile = (arr: number[], p: number): number => {
+    const index = Math.ceil((p / 100) * arr.length) - 1;
+    return arr[Math.max(0, index)];
+  };
+  
+  const good = percentile(times, 33);
+  const moderate = percentile(times, 66);
+  
+  // Garante valores mínimos razoáveis
+  return {
+    good: Math.max(1, Math.round(good)),
+    moderate: Math.max(good + 1, Math.round(moderate)),
+  };
+};
+
+/**
+ * Define os thresholds globais (chamado quando os leads são carregados)
+ */
+export const setThresholds = (leads: Lead[]): PerformanceThresholds => {
+  cachedThresholds = calculateThresholds(leads);
+  return cachedThresholds;
+};
+
+/**
+ * Retorna os thresholds atuais
+ */
+export const getThresholds = (): PerformanceThresholds => {
+  return cachedThresholds || DEFAULT_THRESHOLDS;
+};
+
+/**
+ * Retorna a cor de performance baseada no tempo em minutos (dinâmico)
  */
 export const getPerformanceColor = (minutes: number): string => {
-  if (minutes < 20) return "success";
+  const thresholds = getThresholds();
+  if (minutes <= thresholds.good) return "success";
+  if (minutes <= thresholds.moderate) return "warning";
   return "danger";
 };
 
 /**
- * Retorna o label de performance baseado no tempo em minutos
+ * Retorna o label de performance baseado no tempo em minutos (dinâmico)
  */
 export const getPerformanceLabel = (minutes: number): string => {
-  if (minutes < 20) return "Rápido";
-  return "Lento";
+  const thresholds = getThresholds();
+  if (minutes <= thresholds.good) return "Bom";
+  if (minutes <= thresholds.moderate) return "Moderado";
+  return "Crítico";
 };
 
 /**

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lead, formatTime } from "@/lib/mockData";
+import { Lead, formatTime, getThresholds } from "@/lib/mockData";
 import { Clock } from "lucide-react";
 import {
   Tooltip,
@@ -20,18 +20,23 @@ interface HourlyData {
 }
 
 const getHourlyPerformanceColor = (avgMinutes: number): string => {
-  if (avgMinutes < 15) return "bg-success";
-  if (avgMinutes < 20) return "bg-warning";
+  const thresholds = getThresholds();
+  if (avgMinutes <= thresholds.good) return "bg-success";
+  if (avgMinutes <= thresholds.moderate) return "bg-warning";
   return "bg-danger";
 };
 
 const getHourlyPerformanceLabel = (avgMinutes: number): string => {
-  if (avgMinutes < 15) return "Bom";
-  if (avgMinutes < 20) return "Moderado";
+  const thresholds = getThresholds();
+  if (avgMinutes <= thresholds.good) return "Bom";
+  if (avgMinutes <= thresholds.moderate) return "Moderado";
   return "Crítico";
 };
 
 export const HourlyPerformance = ({ leads }: HourlyPerformanceProps) => {
+  // Pegar thresholds dinâmicos
+  const thresholds = getThresholds();
+  
   const hourlyData = useMemo(() => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -90,19 +95,19 @@ export const HourlyPerformance = ({ leads }: HourlyPerformanceProps) => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {/* Legend */}
+          {/* Legend - valores dinâmicos baseados nos dados */}
           <div className="flex items-center gap-6 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-success" />
-              <span className="text-muted-foreground">Bom (&lt;15 min)</span>
+              <span className="text-muted-foreground">Bom (≤{thresholds.good} min)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-warning" />
-              <span className="text-muted-foreground">Moderado (15-20 min)</span>
+              <span className="text-muted-foreground">Moderado ({thresholds.good + 1}-{thresholds.moderate} min)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded bg-danger" />
-              <span className="text-muted-foreground">Crítico (&gt;20 min)</span>
+              <span className="text-muted-foreground">Crítico (&gt;{thresholds.moderate} min)</span>
             </div>
           </div>
 

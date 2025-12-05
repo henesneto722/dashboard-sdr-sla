@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { calculateSDRPerformance, Lead } from "@/lib/mockData";
+import { calculateSDRPerformance, Lead, setThresholds, getThresholds } from "@/lib/mockData";
 import { fetchLeads, fetchSDRs, fetchImportantPendingLeads } from "@/lib/api";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { SDRRanking } from "@/components/dashboard/SDRRanking";
@@ -126,6 +126,11 @@ const Index = () => {
         });
         
         setAllLeads(leadsData || []);
+        
+        // Calcular thresholds dinâmicos baseados nos dados reais
+        if (leadsData && leadsData.length > 0) {
+          setThresholds(leadsData);
+        }
       } catch (err) {
         console.error('Erro ao carregar dados:', err);
         setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
