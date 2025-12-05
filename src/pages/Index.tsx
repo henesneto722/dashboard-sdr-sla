@@ -11,6 +11,7 @@ import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
 import { Activity, Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 import { Toaster } from "sonner";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 // Interface para SDR com id e nome
 interface SDRInfo {
@@ -169,26 +170,26 @@ const Index = () => {
       {/* Toast notifications */}
       <Toaster position="top-right" richColors closeButton />
       
-      <header className="bg-card border-b border-border shadow-sm">
+      <header className="bg-card border-b border-border shadow-sm dark:header-gradient">
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-primary/10 rounded-lg">
+              <div className="p-3 bg-primary/10 rounded-xl dark:bg-primary/20">
                 <Activity className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Dashboard SDR</h1>
+                <h1 className="text-3xl font-bold text-foreground dark:gradient-text">Dashboard SDR</h1>
                 <p className="text-muted-foreground">Monitoramento de Tempo de Atendimento</p>
               </div>
             </div>
             
-            {/* Status Realtime + Refresh */}
+            {/* Status Realtime + Refresh + Theme Toggle */}
             <div className="flex items-center gap-3">
               {/* Indicador de conexão */}
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all ${
                 isRealtimeEnabled 
-                  ? 'bg-green-500/10 text-green-600' 
-                  : 'bg-yellow-500/10 text-yellow-600'
+                  ? 'bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400' 
+                  : 'bg-yellow-500/10 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-400'
               }`}>
                 {isRealtimeEnabled ? (
                   <>
@@ -210,11 +211,14 @@ const Index = () => {
               {/* Botão de refresh manual */}
               <button
                 onClick={forceRefresh}
-                className="p-2 rounded-lg hover:bg-muted transition-colors"
+                className="p-2 rounded-lg hover:bg-muted transition-colors dark:hover:bg-white/5"
                 title="Atualizar dados"
               >
-                <RefreshCw className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                <RefreshCw className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
               </button>
+              
+              {/* Toggle de tema */}
+              <ThemeToggle />
             </div>
           </div>
         </div>

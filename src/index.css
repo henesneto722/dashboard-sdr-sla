@@ -8,7 +8,7 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 98%;
+    --background: 210 20% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -61,60 +61,77 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 6% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217 91% 60%;
+    
+    /* Gradientes e efeitos */
+    --gradient-start: 210 20% 98%;
+    --gradient-end: 214 32% 95%;
+    --glow-color: 217 91% 60%;
   }
 
+  /* 🌙 DARK MODE - Tema Estético Premium */
   .dark {
-    --background: 222 47% 11%;
+    /* Background com tom de azul/slate profundo */
+    --background: 222 47% 8%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 15%;
+    /* Cards com efeito glassmorphism */
+    --card: 222 41% 12%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 15%;
+    --popover: 222 41% 12%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+    /* Cores primárias mais vibrantes no dark */
+    --primary: 217 100% 65%;
+    --primary-foreground: 222 47% 8%;
 
-    --secondary: 217 33% 18%;
+    --secondary: 215 28% 17%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217 33% 18%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 215 28% 14%;
+    --muted-foreground: 215 20% 55%;
 
-    --accent: 217 91% 60%;
+    --accent: 262 83% 65%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217 33% 18%;
-    --input: 217 33% 18%;
-    --ring: 217 91% 60%;
+    /* Bordas sutis com brilho */
+    --border: 215 28% 18%;
+    --input: 215 28% 18%;
+    --ring: 217 100% 65%;
 
-    --success: 142 71% 45%;
+    /* Cores de status mais vibrantes */
+    --success: 142 76% 50%;
     --success-foreground: 0 0% 100%;
     
-    --warning: 48 96% 53%;
+    --warning: 45 100% 55%;
     --warning-foreground: 0 0% 0%;
     
     --danger: 0 84% 60%;
     --danger-foreground: 0 0% 100%;
 
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 71% 45%;
-    --chart-3: 48 96% 53%;
+    /* Cores de gráficos mais vibrantes */
+    --chart-1: 217 100% 65%;
+    --chart-2: 142 76% 50%;
+    --chart-3: 45 100% 55%;
     --chart-4: 0 84% 60%;
-    --chart-5: 262 83% 58%;
+    --chart-5: 262 83% 65%;
 
-    --sidebar-background: 240 6% 10%;
-    --sidebar-foreground: 240 5% 96%;
-    --sidebar-primary: 217 91% 60%;
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 210 40% 90%;
+    --sidebar-primary: 217 100% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 4% 16%;
-    --sidebar-accent-foreground: 240 5% 96%;
-    --sidebar-border: 240 4% 16%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 215 28% 14%;
+    --sidebar-accent-foreground: 210 40% 90%;
+    --sidebar-border: 215 28% 15%;
+    --sidebar-ring: 217 100% 65%;
+    
+    /* Gradientes e efeitos para dark */
+    --gradient-start: 222 47% 8%;
+    --gradient-end: 230 35% 12%;
+    --glow-color: 217 100% 65%;
   }
 }
 
@@ -124,6 +141,136 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
+  }
+}
+
+/* ===== ESTILOS DARK MODE ESTÉTICOS ===== */
+
+@layer components {
+  /* Background com gradiente sutil */
+  .dark body {
+    background: linear-gradient(
+      135deg, 
+      hsl(222 47% 8%) 0%, 
+      hsl(230 35% 10%) 50%,
+      hsl(222 47% 8%) 100%
+    );
+    background-attachment: fixed;
+  }
+  
+  /* Cards com efeito glassmorphism no dark */
+  .dark .glass-card {
+    background: linear-gradient(
+      135deg,
+      hsl(222 41% 12% / 0.8) 0%,
+      hsl(222 41% 14% / 0.6) 100%
+    );
+    backdrop-filter: blur(10px);
+    border: 1px solid hsl(215 28% 20% / 0.5);
+  }
+  
+  /* Efeito glow nos cards de stats */
+  .dark .stat-card-glow {
+    position: relative;
+  }
+  
+  .dark .stat-card-glow::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      hsl(217 100% 65% / 0.2) 0%,
+      transparent 50%,
+      hsl(262 83% 65% / 0.1) 100%
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  
+  /* Header com gradiente no dark */
+  .dark .header-gradient {
+    background: linear-gradient(
+      to right,
+      hsl(222 47% 10%) 0%,
+      hsl(230 35% 12%) 100%
+    );
+    border-bottom: 1px solid hsl(215 28% 18% / 0.8);
+  }
+  
+  /* Texto com gradiente para títulos */
+  .dark .gradient-text {
+    background: linear-gradient(
+      135deg,
+      hsl(210 40% 98%) 0%,
+      hsl(217 100% 75%) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  /* Hover com glow sutil */
+  .dark .hover-glow:hover {
+    box-shadow: 0 0 20px hsl(217 100% 65% / 0.15),
+                0 0 40px hsl(217 100% 65% / 0.1);
+  }
+  
+  /* Badge com glow */
+  .dark .badge-glow {
+    box-shadow: 0 0 10px currentColor;
+  }
+  
+  /* Scrollbar estilizada no dark */
+  .dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .dark ::-webkit-scrollbar-track {
+    background: hsl(222 47% 8%);
+  }
+  
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(215 28% 25%);
+    border-radius: 4px;
+  }
+  
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(215 28% 35%);
+  }
+  
+  /* Animação de pulso para indicadores */
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 5px currentColor,
+                  0 0 10px currentColor;
+    }
+    50% {
+      box-shadow: 0 0 10px currentColor,
+                  0 0 20px currentColor,
+                  0 0 30px currentColor;
+    }
+  }
+  
+  /* Transição suave para mudança de tema */
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition: background-color 0.3s ease,
+                border-color 0.3s ease,
+                color 0.3s ease,
+                box-shadow 0.3s ease !important;
   }
 }

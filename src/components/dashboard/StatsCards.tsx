@@ -100,19 +100,23 @@ export const StatsCards = ({
       {stats.map((stat, index) => (
         <Card 
           key={index} 
-          className={`border-border hover:shadow-lg transition-shadow ${stat.clickable ? 'cursor-pointer hover:border-orange-500/50' : ''}`}
+          className={`
+            border-border hover:shadow-lg transition-all duration-300
+            dark:bg-card/80 dark:backdrop-blur-sm dark:hover-glow
+            ${stat.clickable ? 'cursor-pointer hover:border-orange-500/50 dark:hover:border-orange-400/50' : ''}
+          `}
           onClick={stat.clickable ? stat.onClick : undefined}
         >
           <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground mb-2">{stat.title}</p>
-                <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                <p className={`text-3xl font-bold ${stat.color} dark:drop-shadow-[0_0_8px_currentColor]`}>{stat.value}</p>
                 {stat.subtitle && (
                   <p className="text-xs text-muted-foreground mt-1">{stat.subtitle}</p>
                 )}
               </div>
-              <div className={`p-3 rounded-lg ${stat.bgColor}`}>
+              <div className={`p-3 rounded-xl ${stat.bgColor} dark:${stat.bgColor.replace('/10', '/20')} transition-colors`}>
                 <stat.icon className={`h-6 w-6 ${stat.color}`} />
               </div>
             </div>
