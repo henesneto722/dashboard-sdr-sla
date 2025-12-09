@@ -10,7 +10,8 @@
     "dev": "tsx watch src/app.ts",
     "build": "npm install --include=dev && tsc",
     "start": "node dist/app.js",
-    "lint": "eslint src/**/*.ts"
+    "lint": "eslint src/**/*.ts",
+    "seed": "tsx src/scripts/seedExampleData.ts"
   },
   "keywords": ["sla", "sdr", "pipedrive", "supabase", "dashboard"],
   "author": "",

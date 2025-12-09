@@ -5,7 +5,9 @@
 import { Lead, SDRPerformance } from './mockData';
 
 // URL base da API (configurável via variável de ambiente)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://lead-speed-monitor.onrender.com';
+// Em desenvolvimento, usa localhost:3001 por padrão
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:3001' : 'https://lead-speed-monitor.onrender.com');
 
 /**
  * Interface de resposta padrão da API
