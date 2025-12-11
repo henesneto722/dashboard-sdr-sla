@@ -200,19 +200,25 @@ export function calculateSdrAttendance(
       continue;
     }
 
-    const sdrId = String(event.user_id);
-    const sdrName = event.user_name;
+    // IMPORTANTE: Converter user_id para string e garantir consistência
+    const sdrId = String(event.user_id).trim();
+    const sdrName = event.user_name ? String(event.user_name).trim() : undefined;
     
     // Extrair data e hora em timezone de São Paulo
     const date = extractDateInSaoPaulo(event.timestamp);
     const hour = extractHourInSaoPaulo(event.timestamp);
     
-    // Chave única para o grupo (SDR + Data)
-    const key = `${sdrId}|${date}`;
+    // CRÍTICO: Usar user_name como parte da chave quando disponível
+    // Isso garante que SDRs com mesmo user_id mas nomes diferentes sejam separados
+    // Chave única: user_id + user_name + data (para garantir separação correta)
+    const key = sdrName 
+      ? `${sdrId}|${sdrName}|${date}` 
+      : `${sdrId}|${date}`;
     
     // Obter ou criar métricas para este SDR nesta data
     let metrics = metricsMap.get(key);
     if (!metrics) {
+      // Criar nova entrada para este SDR nesta data
       metrics = {
         sdr_id: sdrId,
         sdr_name: sdrName,
@@ -230,6 +236,21 @@ export function calculateSdrAttendance(
         total_actions: 0,
       };
       metricsMap.set(key, metrics);
+      console.log(`🆕 Nova métrica criada: SDR ${sdrId} (${sdrName || 'Sem nome'}) em ${date} - Chave: ${key}`);
+    } else {
+      // Atualizar nome se não estava definido e agora temos
+      if (!metrics.sdr_name && sdrName) {
+        metrics.sdr_name = sdrName;
+      }
+      // VALIDAÇÃO: Verificar se é o mesmo SDR (mesmo ID e mesmo nome)
+      if (metrics.sdr_id !== sdrId || (sdrName && metrics.sdr_name !== sdrName)) {
+        console.error(`❌ ERRO: Tentativa de sobrescrever métrica de outro SDR!`);
+        console.error(`   Métrica existente: SDR ${metrics.sdr_id} (${metrics.sdr_name})`);
+        console.error(`   Evento atual: SDR ${sdrId} (${sdrName})`);
+        console.error(`   Data: ${date}, Chave: ${key}`);
+        // Não processar este evento para evitar corrupção de dados
+        continue;
+      }
     }
 
     // Classificar evento por turno
@@ -295,6 +316,23 @@ export function calculateSdrAttendance(
       if (dateCompare !== 0) return dateCompare;
       return (a.sdr_name || a.sdr_id).localeCompare(b.sdr_name || b.sdr_id);
     });
+
+  // Log para debug: mostrar métricas calculadas
+  console.log(`📈 Métricas calculadas: ${result.length} registros`);
+  const metricsBySdr = new Map<string, number>();
+  result.forEach(m => {
+    const count = metricsBySdr.get(m.sdr_id) || 0;
+    metricsBySdr.set(m.sdr_id, count + 1);
+    console.log(`   ✅ ${m.sdr_name || m.sdr_id} (ID: ${m.sdr_id}) em ${m.date}: ${m.total_actions} ações`);
+  });
+  console.log(`📊 Resumo: ${metricsBySdr.size} SDRs únicos encontrados`);
+  if (metricsBySdr.size > 1) {
+    console.log(`✅ MÚLTIPLOS SDRs detectados - cada um deve aparecer em linha separada`);
+  }
+  metricsBySdr.forEach((count, sdrId) => {
+    const sdrName = result.find(m => m.sdr_id === sdrId)?.sdr_name || 'Sem nome';
+    console.log(`   - SDR ${sdrId} (${sdrName}): ${count} registro(s) na tabela`);
+  });
 
   return result;
 }

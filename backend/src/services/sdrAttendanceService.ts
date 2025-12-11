@@ -122,6 +122,23 @@ export async function getAttendanceEvents(filters?: {
       throw new Error(`Erro ao buscar eventos: ${error.message}`);
     }
 
+    // Log para debug: mostrar quantos eventos por SDR foram encontrados
+    if (data && data.length > 0) {
+      const eventsBySdr = new Map<string, number>();
+      data.forEach(e => {
+        const count = eventsBySdr.get(e.user_id) || 0;
+        eventsBySdr.set(e.user_id, count + 1);
+      });
+      
+      console.log(`📋 [getAttendanceEvents] Eventos encontrados: ${data.length} total`);
+      eventsBySdr.forEach((count, sdrId) => {
+        const sdrName = data.find(e => e.user_id === sdrId)?.user_name || 'Sem nome';
+        console.log(`   - SDR ${sdrId} (${sdrName}): ${count} eventos`);
+      });
+    } else {
+      console.log(`📋 [getAttendanceEvents] Nenhum evento encontrado`);
+    }
+
     return data || [];
   } catch (error) {
     console.error('❌ Erro inesperado ao buscar eventos:', error);
@@ -133,7 +150,7 @@ export async function getAttendanceEvents(filters?: {
  * Converte eventos do banco para formato esperado pelo calculador
  */
 function convertToPipedriveFlowEvents(events: SdrAttendanceEvent[]): PipedriveFlowEvent[] {
-  return events.map(event => ({
+  const converted = events.map(event => ({
     user_id: event.user_id,
     user_name: event.user_name || undefined,
     timestamp: event.timestamp,
@@ -141,6 +158,21 @@ function convertToPipedriveFlowEvents(events: SdrAttendanceEvent[]): PipedriveFl
     event_type: event.event_type,
     metadata: event.metadata || undefined,
   }));
+  
+  // Log para debug: mostrar quantos eventos por SDR
+  const eventsBySdr = new Map<string, number>();
+  converted.forEach(e => {
+    const count = eventsBySdr.get(e.user_id) || 0;
+    eventsBySdr.set(e.user_id, count + 1);
+  });
+  
+  console.log(`📊 Eventos convertidos: ${converted.length} total`);
+  eventsBySdr.forEach((count, sdrId) => {
+    const sdrName = converted.find(e => e.user_id === sdrId)?.user_name || 'Sem nome';
+    console.log(`   - SDR ${sdrId} (${sdrName}): ${count} eventos`);
+  });
+  
+  return converted;
 }
 
 // ============================================
@@ -156,14 +188,18 @@ export async function calculateAttendanceMetrics(filters?: {
   user_id?: string;
 }): Promise<SdrDailyMetrics[]> {
   try {
+    console.log(`🔍 [calculateAttendanceMetrics] Buscando eventos com filtros:`, filters);
     const events = await getAttendanceEvents({
       user_id: filters?.user_id,
       start_date: filters?.start_date,
       end_date: filters?.end_date,
     });
 
+    console.log(`📥 [calculateAttendanceMetrics] Eventos encontrados: ${events.length}`);
     const flowEvents = convertToPipedriveFlowEvents(events);
-    return calculateSdrAttendance(flowEvents);
+    const metrics = calculateSdrAttendance(flowEvents);
+    console.log(`✅ [calculateAttendanceMetrics] Métricas calculadas: ${metrics.length} registros`);
+    return metrics;
   } catch (error) {
     console.error('❌ Erro ao calcular métricas:', error);
     return [];
