@@ -202,17 +202,17 @@ export function calculateSdrAttendance(
 
     // IMPORTANTE: Converter user_id para string e garantir consistência
     const sdrId = String(event.user_id).trim();
-    const sdrName = event.user_name ? String(event.user_name).trim() : undefined;
+    const sdrName = event.user_name ? String(event.user_name).trim().toUpperCase() : undefined;
     
     // Extrair data e hora em timezone de São Paulo
     const date = extractDateInSaoPaulo(event.timestamp);
     const hour = extractHourInSaoPaulo(event.timestamp);
     
-    // CRÍTICO: Usar user_name como parte da chave quando disponível
-    // Isso garante que SDRs com mesmo user_id mas nomes diferentes sejam separados
-    // Chave única: user_id + user_name + data (para garantir separação correta)
+    // CRÍTICO: Priorizar user_name na chave de agrupamento
+    // Se o nome for o mesmo, é o mesmo SDR, independente do user_id
+    // Chave única: user_name + data (quando nome disponível) OU user_id + data (fallback)
     const key = sdrName 
-      ? `${sdrId}|${sdrName}|${date}` 
+      ? `${sdrName}|${date}` 
       : `${sdrId}|${date}`;
     
     // Obter ou criar métricas para este SDR nesta data
@@ -220,7 +220,7 @@ export function calculateSdrAttendance(
     if (!metrics) {
       // Criar nova entrada para este SDR nesta data
       metrics = {
-        sdr_id: sdrId,
+        sdr_id: sdrId, // Primeiro user_id encontrado para este nome
         sdr_name: sdrName,
         date: date,
         morning: {
@@ -236,20 +236,16 @@ export function calculateSdrAttendance(
         total_actions: 0,
       };
       metricsMap.set(key, metrics);
-      console.log(`🆕 Nova métrica criada: SDR ${sdrId} (${sdrName || 'Sem nome'}) em ${date} - Chave: ${key}`);
+      console.log(`🆕 Nova métrica criada: SDR ${sdrName || sdrId} (ID: ${sdrId}) em ${date} - Chave: ${key}`);
     } else {
       // Atualizar nome se não estava definido e agora temos
       if (!metrics.sdr_name && sdrName) {
         metrics.sdr_name = sdrName;
       }
-      // VALIDAÇÃO: Verificar se é o mesmo SDR (mesmo ID e mesmo nome)
-      if (metrics.sdr_id !== sdrId || (sdrName && metrics.sdr_name !== sdrName)) {
-        console.error(`❌ ERRO: Tentativa de sobrescrever métrica de outro SDR!`);
-        console.error(`   Métrica existente: SDR ${metrics.sdr_id} (${metrics.sdr_name})`);
-        console.error(`   Evento atual: SDR ${sdrId} (${sdrName})`);
-        console.error(`   Data: ${date}, Chave: ${key}`);
-        // Não processar este evento para evitar corrupção de dados
-        continue;
+      // Se agrupamos por nome, diferentes user_id's com mesmo nome são permitidos
+      // Apenas logamos para debug, mas não bloqueamos
+      if (sdrName && metrics.sdr_name === sdrName && metrics.sdr_id !== sdrId) {
+        console.log(`ℹ️ Mesmo SDR (${sdrName}) com ID diferente: ${metrics.sdr_id} → ${sdrId} (agrupando por nome)`);
       }
     }
 
@@ -321,17 +317,21 @@ export function calculateSdrAttendance(
   console.log(`📈 Métricas calculadas: ${result.length} registros`);
   const metricsBySdr = new Map<string, number>();
   result.forEach(m => {
-    const count = metricsBySdr.get(m.sdr_id) || 0;
-    metricsBySdr.set(m.sdr_id, count + 1);
+    // Usar nome do SDR como chave (priorizando nome sobre ID)
+    const sdrKey = m.sdr_name || m.sdr_id;
+    const count = metricsBySdr.get(sdrKey) || 0;
+    metricsBySdr.set(sdrKey, count + 1);
     console.log(`   ✅ ${m.sdr_name || m.sdr_id} (ID: ${m.sdr_id}) em ${m.date}: ${m.total_actions} ações`);
   });
-  console.log(`📊 Resumo: ${metricsBySdr.size} SDRs únicos encontrados`);
+  console.log(`📊 Resumo: ${metricsBySdr.size} SDRs únicos encontrados (agrupados por nome)`);
   if (metricsBySdr.size > 1) {
     console.log(`✅ MÚLTIPLOS SDRs detectados - cada um deve aparecer em linha separada`);
   }
-  metricsBySdr.forEach((count, sdrId) => {
-    const sdrName = result.find(m => m.sdr_id === sdrId)?.sdr_name || 'Sem nome';
-    console.log(`   - SDR ${sdrId} (${sdrName}): ${count} registro(s) na tabela`);
+  metricsBySdr.forEach((count, sdrKey) => {
+    const metric = result.find(m => (m.sdr_name || m.sdr_id) === sdrKey);
+    const sdrName = metric?.sdr_name || 'Sem nome';
+    const sdrId = metric?.sdr_id || 'N/A';
+    console.log(`   - SDR ${sdrName} (ID: ${sdrId}): ${count} registro(s) na tabela`);
   });
 
   return result;
