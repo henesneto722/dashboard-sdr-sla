@@ -290,9 +290,10 @@ const Index = () => {
                 
                 <SDRRanking sdrPerformance={sdrPerformance} />
                 
-                <AverageTimeChart />
-                
-                <PerformanceCharts leads={filteredLeads} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                  <AverageTimeChart />
+                  <PerformanceCharts leads={filteredLeads} />
+                </div>
                 
                 <HourlyPerformance leads={allLeads} />
                 
