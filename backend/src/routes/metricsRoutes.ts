@@ -10,7 +10,13 @@ import {
   getHourlyPerformance,
   getDailyAverage
 } from '../services/leadsService.js';
-import { ApiResponse, GeneralMetrics, SDRPerformance, HourlyPerformance, DailyAverage } from '../types/index.js';
+import {
+  calculateAttendanceMetrics,
+  calculateAttendanceMetricsForSdr,
+  calculateAttendanceMetricsForDate,
+  calculateAttendanceMetricsForSdrAndDate,
+} from '../services/sdrAttendanceService.js';
+import { ApiResponse, GeneralMetrics, SDRPerformance, HourlyPerformance, DailyAverage, SdrDailyMetrics } from '../types/index.js';
 
 const router = Router();
 
@@ -112,6 +118,86 @@ router.get('/hourly-performance', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao buscar performance por hora',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * GET /api/metrics/sdr-attendance
+ * Retorna jornada de atendimento dos SDRs
+ * Query params: sdr_id (opcional), date (opcional, formato YYYY-MM-DD), start_date, end_date
+ * 
+ * IMPORTANTE: Registra eventos APENAS quando um lead é movido do pipeline principal "SDR"
+ * para um pipeline individual "NOME - SDR" (pendente → atendido)
+ */
+router.get('/sdr-attendance', async (req: Request, res: Response) => {
+  console.log('📥 [ROTA] GET /api/metrics/sdr-attendance - Requisição recebida');
+  try {
+    const { sdr_id, date, start_date, end_date } = req.query;
+
+    let metrics: SdrDailyMetrics[] | SdrDailyMetrics | null;
+
+    if (sdr_id && date) {
+      // Buscar métricas para um SDR específico em uma data específica
+      console.log(`🔍 Buscando métricas para SDR ${sdr_id} na data ${date}`);
+      metrics = await calculateAttendanceMetricsForSdrAndDate(
+        sdr_id as string,
+        date as string
+      );
+
+      if (!metrics) {
+        return res.status(404).json({
+          success: false,
+          error: 'Nenhuma métrica encontrada para o SDR e data especificados',
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      const response: ApiResponse<SdrDailyMetrics> = {
+        success: true,
+        data: metrics,
+        timestamp: new Date().toISOString(),
+      };
+
+      console.log(`✅ Métricas retornadas com sucesso para SDR ${sdr_id} na data ${date}`);
+      return res.json(response);
+    }
+
+    if (sdr_id) {
+      // Buscar métricas para um SDR específico
+      console.log(`🔍 Buscando métricas para SDR ${sdr_id}`);
+      metrics = await calculateAttendanceMetricsForSdr(sdr_id as string, {
+        start_date: start_date as string,
+        end_date: end_date as string,
+      });
+    } else if (date) {
+      // Buscar métricas para uma data específica
+      console.log(`🔍 Buscando métricas para data ${date}`);
+      metrics = await calculateAttendanceMetricsForDate(date as string);
+    } else {
+      // Buscar todas as métricas
+      console.log('🔍 Buscando todas as métricas de jornada');
+      metrics = await calculateAttendanceMetrics({
+        start_date: start_date as string,
+        end_date: end_date as string,
+      });
+    }
+
+    const response: ApiResponse<SdrDailyMetrics[]> = {
+      success: true,
+      data: Array.isArray(metrics) ? metrics : metrics ? [metrics] : [],
+      timestamp: new Date().toISOString(),
+    };
+
+    console.log(`✅ Métricas retornadas com sucesso: ${Array.isArray(metrics) ? metrics.length : metrics ? 1 : 0} registros`);
+    res.json(response);
+  } catch (error) {
+    console.error('❌ [ROTA] Erro em /metrics/sdr-attendance:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar jornada de atendimento',
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       timestamp: new Date().toISOString(),
     });

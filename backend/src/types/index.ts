@@ -79,6 +79,27 @@ export interface DailyAverage {
   avg_sla: number; // Média arredondada em minutos
 }
 
+// ============================================
+// Tipos para Jornada de Atendimento dos SDRs
+// ============================================
+
+export interface SdrDailyMetrics {
+  sdr_id: string;
+  sdr_name?: string;
+  date: string; // YYYY-MM-DD
+  morning: {
+    first_action: string | null; // ISO 8601 UTC
+    last_action: string | null; // ISO 8601 UTC
+    action_count: number;
+  };
+  afternoon: {
+    first_action: string | null; // ISO 8601 UTC
+    last_action: string | null; // ISO 8601 UTC
+    action_count: number;
+  };
+  total_actions: number;
+}
+
 export interface TimelineData {
   date: string;
   leads: LeadSLA[];

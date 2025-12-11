@@ -143,3 +143,44 @@ export async function fetchTodayAttendedLeads(): Promise<Lead[]> {
   return json.data;
 }
 
+/**
+ * Interface para métricas de jornada de atendimento dos SDRs
+ */
+export interface SdrDailyMetrics {
+  sdr_id: string;
+  sdr_name?: string;
+  date: string; // YYYY-MM-DD
+  morning: {
+    first_action: string | null; // ISO 8601 UTC
+    last_action: string | null; // ISO 8601 UTC
+    action_count: number;
+  };
+  afternoon: {
+    first_action: string | null; // ISO 8601 UTC
+    last_action: string | null; // ISO 8601 UTC
+    action_count: number;
+  };
+  total_actions: number;
+}
+
+/**
+ * Busca jornada de atendimento dos SDRs
+ */
+export async function fetchSdrAttendance(filters?: {
+  sdr_id?: string;
+  date?: string;
+  start_date?: string;
+  end_date?: string;
+}): Promise<SdrDailyMetrics[]> {
+  const params = new URLSearchParams();
+  if (filters?.sdr_id) params.append('sdr_id', filters.sdr_id);
+  if (filters?.date) params.append('date', filters.date);
+  if (filters?.start_date) params.append('start_date', filters.start_date);
+  if (filters?.end_date) params.append('end_date', filters.end_date);
+
+  const url = `${API_BASE_URL}/api/metrics/sdr-attendance${params.toString() ? `?${params.toString()}` : ''}`;
+  const response = await fetch(url);
+  const json: ApiResponse<SdrDailyMetrics[]> = await response.json();
+  return json.data;
+}
+

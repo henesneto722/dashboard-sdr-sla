@@ -9,6 +9,7 @@ import { Timeline } from "@/components/dashboard/Timeline";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
 import { AverageTimeChart } from "@/components/dashboard/AverageTimeChart";
+import { SdrAttendanceJourney } from "@/components/dashboard/SdrAttendanceJourney";
 import { Activity, Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -296,6 +297,10 @@ const Index = () => {
                 </div>
                 
                 <HourlyPerformance leads={allLeads} />
+                
+                <SdrAttendanceJourney 
+                  sdrId={selectedSDR !== "all" ? sdrsInfo.find(s => s.sdr_name === selectedSDR)?.sdr_id : undefined}
+                />
                 
                 <Timeline leads={filteredLeads} />
                 

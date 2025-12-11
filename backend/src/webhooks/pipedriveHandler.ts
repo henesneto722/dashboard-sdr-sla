@@ -39,6 +39,7 @@ function isValidSDRStage(stageName: string | null): boolean {
 
 import { Request, Response } from 'express';
 import { createLead, attendLead, findLeadByPipedriveId, updateLeadStage } from '../services/leadsService.js';
+import { createAttendanceEvent } from '../services/sdrAttendanceService.js';
 import { 
   isSDRPipeline,
   isMainSDRPipeline,
@@ -241,7 +242,31 @@ async function handleDealAdded(
       leadData.sdr_id = pipelineId.toString();
       leadData.sdr_name = sdrName;
       leadData.attended_at = updateTime;
-      // SLA será calculado no serviço
+      
+      // Registrar evento de atendimento APENAS quando lead é criado já no pipeline individual
+      // Isso significa que o SDR pegou o lead diretamente (sem passar pelo pipeline principal)
+      if (userId) {
+        try {
+          await createAttendanceEvent({
+            user_id: userId.toString(),
+            user_name: sdrName,
+            timestamp: updateTime,
+            deal_id: dealIdStr,
+            event_type: 'attended',
+            pipeline_id: pipelineId.toString(),
+            stage_id: stageId?.toString(),
+            metadata: {
+              action: 'added',
+              is_attended: true,
+              is_main_pipeline: false,
+              source: 'individual_pipeline_direct',
+            },
+          });
+          console.log(`📝 Evento de atendimento registrado para SDR ${userId} (deal ${dealIdStr}) - Criado já atendido`);
+        } catch (error) {
+          console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
+        }
+      }
     }
 
     const lead = await createLead(leadData);
@@ -330,6 +355,31 @@ async function handleDealUpdated(
         leadData.sdr_id = pipelineId.toString();
         leadData.sdr_name = sdrName;
         leadData.attended_at = updateTime;
+        
+        // Registrar evento de atendimento APENAS quando lead é criado já atendido (pipeline individual)
+        // Isso significa que o SDR pegou o lead diretamente do pipeline individual
+        if (userId) {
+          try {
+            await createAttendanceEvent({
+              user_id: userId.toString(),
+              user_name: sdrName,
+              timestamp: updateTime,
+              deal_id: dealIdStr,
+              event_type: 'attended',
+              pipeline_id: pipelineId.toString(),
+              stage_id: stageId?.toString(),
+              metadata: {
+                action: 'added',
+                is_attended: true,
+                is_main_pipeline: false,
+                source: 'individual_pipeline',
+              },
+            });
+            console.log(`📝 Evento de atendimento registrado para SDR ${userId} (deal ${dealIdStr}) - Criado já atendido`);
+          } catch (error) {
+            console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
+          }
+        }
       }
 
       existingLead = await createLead(leadData);
@@ -355,6 +405,29 @@ async function handleDealUpdated(
         updateTime
       );
 
+      // Registrar evento de atendimento
+      if (userId) {
+        try {
+          await createAttendanceEvent({
+            user_id: userId.toString(),
+            user_name: sdrName,
+            timestamp: updateTime,
+            deal_id: dealIdStr,
+            event_type: 'attended',
+            pipeline_id: pipelineId.toString(),
+            stage_id: stageId?.toString(),
+            metadata: {
+              action: 'updated',
+              is_attended: true,
+              is_main_pipeline: false,
+            },
+          });
+          console.log(`📝 Evento de atendimento registrado para SDR ${userId} (deal ${dealIdStr})`);
+        } catch (error) {
+          console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
+        }
+      }
+
       console.log(`✅ Lead ${dealIdStr} ATENDIDO por ${sdrName} - SLA calculado!`);
       res.status(200).json({ 
         success: true, 
@@ -365,6 +438,7 @@ async function handleDealUpdated(
     }
     
     // Se está no funil principal e mudou para uma etapa válida, atualizar
+    // NÃO registrar evento aqui - apenas mudanças dentro do pipeline principal não contam como jornada
     if (isMainPipeline && isValidSDRStage(stageName)) {
       if (existingLead.stage_name !== stageName) {
         await updateLeadStage(dealIdStr, stageName, stagePriority);

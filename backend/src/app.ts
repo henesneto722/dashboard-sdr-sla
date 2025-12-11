@@ -184,6 +184,7 @@ async function startServer() {
     console.log(`   GET  http://localhost:${PORT}/api/metrics/timeline`);
     console.log(`   GET  http://localhost:${PORT}/api/metrics/hourly-performance`);
     console.log(`   GET  http://localhost:${PORT}/api/metrics/daily-average`);
+    console.log(`   GET  http://localhost:${PORT}/api/metrics/sdr-attendance`);
     console.log(`   GET  http://localhost:${PORT}/api/leads/slowest`);
     console.log(`   GET  http://localhost:${PORT}/api/leads/pending`);
     console.log(`   GET  http://localhost:${PORT}/api/leads/detail`);
