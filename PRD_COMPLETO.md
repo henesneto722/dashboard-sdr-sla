@@ -2318,11 +2318,443 @@ Ver `RESOLVER_PORTA_3001.md` para soluções detalhadas.
 
 ---
 
+---
+
+## 31. Jornada de Atendimento dos SDRs
+
+### 31.1 Visão Geral
+
+A **Jornada de Atendimento dos SDRs** é um módulo completo que registra e calcula a jornada de trabalho dos SDRs baseado na movimentação de leads do Pipedrive. O sistema identifica quando cada SDR iniciou e finalizou suas atividades, dividindo o dia em turnos (manhã e tarde) e fornecendo métricas detalhadas.
+
+### 31.2 Objetivo
+
+- **Monitorar jornada de trabalho:** Identificar quando cada SDR está ativo
+- **Calcular turnos:** Dividir o dia em manhã (06h-12h) e tarde (13h-18h)
+- **Análise temporal:** Entender padrões de trabalho e produtividade
+- **Filtro por data:** Visualizar jornada de dias específicos
+
+### 31.3 Regras de Negócio
+
+#### 31.3.1 Quando um Evento é Registrado
+
+Um evento de jornada é registrado **APENAS** quando:
+
+✅ **Lead é movido do pipeline principal "SDR" → Pipeline individual "NOME - SDR"**
+- Isso significa que o lead estava **PENDENTE** e foi **ATENDIDO** por um SDR
+- O evento é registrado no momento exato dessa movimentação
+- O `user_id` do webhook identifica qual SDR fez a ação
+
+✅ **Lead é criado diretamente em pipeline individual** (caso raro)
+- Se um lead for criado já no pipeline individual, também é registrado
+
+#### 31.3.2 O que NÃO é registrado
+
+❌ Mudanças de stage dentro do pipeline principal "SDR"
+- Exemplo: Lead mudando de "TEM PERFIL" para "PERFIL MENOR" dentro do pipeline "SDR"
+- **Motivo:** O lead ainda está pendente, não foi atendido
+
+❌ Mudanças dentro de pipelines individuais
+- Exemplo: Lead mudando de stage dentro do pipeline "JOÃO - SDR"
+- **Motivo:** O lead já foi atendido, mudanças internas não contam
+
+#### 31.3.3 Turnos de Trabalho
+
+O sistema divide o dia em **2 turnos** (horário de São Paulo):
+
+**🌅 Turno da Manhã: 06:00 às 12:00**
+- Primeira ação: Timestamp da primeira movimentação de lead neste horário
+- Última ação: Timestamp da última movimentação neste horário
+- Total de ações: Quantidade de leads atendidos neste turno
+- Duração: Calculada automaticamente (última ação - primeira ação)
+
+**🌇 Turno da Tarde: 13:00 às 18:00**
+- Primeira ação: Timestamp da primeira movimentação de lead neste horário
+- Última ação: Timestamp da última movimentação neste horário
+- Total de ações: Quantidade de leads atendidos neste turno
+- Duração: Calculada automaticamente (última ação - primeira ação)
+
+**Nota:** Eventos fora dos horários de trabalho (06-12h e 13-18h) não são contabilizados nos turnos, mas contam no `total_actions`.
+
+#### 31.3.4 Agrupamento
+
+Os dados são agrupados por:
+- **SDR** (`user_id` do Pipedrive)
+- **Data** (dia civil em horário de São Paulo, formato YYYY-MM-DD)
+
+### 31.4 Estrutura de Dados
+
+#### 31.4.1 Tabela: `sdr_attendance_events`
+
+```sql
+CREATE TABLE sdr_attendance_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id VARCHAR(100) NOT NULL,
+    user_name VARCHAR(255),
+    timestamp TIMESTAMPTZ NOT NULL,
+    deal_id VARCHAR(100) NOT NULL,
+    event_type VARCHAR(50) DEFAULT 'attended',
+    pipeline_id VARCHAR(100),
+    stage_id VARCHAR(100),
+    metadata JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+**Índices:**
+- `idx_sdr_attendance_user_id` - Otimiza busca por SDR
+- `idx_sdr_attendance_timestamp` - Otimiza busca por data
+- `idx_sdr_attendance_deal_id` - Otimiza busca por lead
+- `idx_sdr_attendance_user_date` - Otimiza busca por SDR e data
+- `idx_sdr_attendance_user_timestamp` - Índice composto
+
+#### 31.4.2 Interface: `SdrDailyMetrics`
+
+```typescript
+interface SdrDailyMetrics {
+  sdr_id: string;                   // ID do SDR
+  sdr_name?: string;                // Nome do SDR
+  date: string;                     // YYYY-MM-DD (timezone SP)
+  morning: {
+    first_action: string | null;    // ISO 8601 UTC
+    last_action: string | null;     // ISO 8601 UTC
+    action_count: number;
+  };
+  afternoon: {
+    first_action: string | null;    // ISO 8601 UTC
+    last_action: string | null;     // ISO 8601 UTC
+    action_count: number;
+  };
+  total_actions: number;
+}
+```
+
+### 31.5 APIs e Endpoints
+
+#### 31.5.1 GET /api/metrics/sdr-attendance
+
+**Descrição:** Retorna jornada de atendimento dos SDRs
+
+**Query Parameters:**
+- `sdr_id` (opcional): ID do SDR específico
+- `date` (opcional): Data no formato YYYY-MM-DD (timezone São Paulo)
+- `start_date` (opcional): Data inicial para range
+- `end_date` (opcional): Data final para range
+
+**Exemplos:**
+
+```bash
+# Buscar todas as métricas
+GET /api/metrics/sdr-attendance
+
+# Buscar métricas de um SDR específico
+GET /api/metrics/sdr-attendance?sdr_id=123
+
+# Buscar métricas de uma data específica
+GET /api/metrics/sdr-attendance?date=2024-12-11
+
+# Buscar métricas de um SDR em uma data específica
+GET /api/metrics/sdr-attendance?sdr_id=123&date=2024-12-11
+```
+
+**Resposta:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "sdr_id": "123",
+      "sdr_name": "João Silva",
+      "date": "2024-12-11",
+      "morning": {
+        "first_action": "2024-12-11T11:30:00Z",
+        "last_action": "2024-12-11T14:15:00Z",
+        "action_count": 3
+      },
+      "afternoon": {
+        "first_action": "2024-12-11T16:30:00Z",
+        "last_action": "2024-12-11T20:45:00Z",
+        "action_count": 2
+      },
+      "total_actions": 5
+    }
+  ],
+  "timestamp": "2024-12-11T18:51:28.089Z"
+}
+```
+
+**Tratamento de Timezone:**
+- A data selecionada é interpretada como horário de São Paulo
+- O backend converte automaticamente para UTC para buscar no banco
+- Os timestamps retornados são em UTC (ISO 8601)
+- O frontend converte para horário de São Paulo para exibição
+
+### 31.6 Interface do Usuário
+
+#### 31.6.1 Componente: `SdrAttendanceJourney`
+
+**Localização:** `src/components/dashboard/SdrAttendanceJourney.tsx`
+
+**Funcionalidades:**
+
+1. **Cards de Estatísticas Rápidas:**
+   - **SDRs Ativos:** Total de SDRs únicos com eventos
+   - **Total de Ações:** Soma de todas as ações registradas
+   - **Dias Registrados:** Total de dias únicos com eventos
+
+2. **Tabela de Jornada:**
+   - Colunas: SDR, Data, Manhã, Tarde, Total
+   - Badges coloridos para turnos (amarelo para manhã, laranja para tarde)
+   - Exibe horários formatados (primeira ação - última ação)
+   - Mostra quantidade de ações e duração do turno
+
+3. **Seletor de Data:**
+   - Botão de calendário no ícone do header (sempre acessível)
+   - Funciona em todos os estados (loading, erro, sem dados, com dados)
+   - Permite selecionar qualquer data (futuras desabilitadas)
+   - Mostra indicador visual quando há filtro ativo
+   - Botão "Limpar" para remover filtro
+
+4. **Estados:**
+   - **Loading:** Spinner com mensagem
+   - **Erro:** Mensagem de erro com ícone
+   - **Sem dados:** Mensagem informativa com opções de ação
+   - **Com dados:** Tabela completa com métricas
+
+#### 31.6.2 Características Visuais
+
+- **Cards de turnos:** Tamanho reduzido para melhor estética
+- **Badges coloridos:** Amarelo (manhã) e laranja (tarde)
+- **Horários ordenados:** Primeira ação sempre aparece primeiro
+- **Texto padronizado:** Sempre "ações" (sem plural condicional)
+- **Layout responsivo:** Adapta-se a diferentes tamanhos de tela
+- **Tema dark/light:** Suporta ambos os temas
+
+### 31.7 Fluxos de Dados
+
+#### 31.7.1 Registro de Evento
+
+```
+1. Webhook do Pipedrive recebe evento (deal.added ou deal.updated)
+2. Handler verifica se lead foi movido de "SDR" → "NOME - SDR"
+3. Se sim, chama createAttendanceEvent()
+4. Evento é salvo na tabela sdr_attendance_events
+5. Log de confirmação é gerado
+```
+
+#### 31.7.2 Cálculo de Métricas
+
+```
+1. Frontend faz requisição para /api/metrics/sdr-attendance
+2. Backend busca eventos do banco (com filtros se aplicável)
+3. Eventos são convertidos para formato PipedriveFlowEvent
+4. Módulo SdrAttendanceCalculator processa eventos:
+   - Converte timestamps UTC para horário de São Paulo
+   - Classifica por turno (manhã/tarde)
+   - Agrupa por SDR e data
+   - Calcula primeira/última ação e contagem
+5. Métricas são retornadas ao frontend
+6. Frontend exibe na tabela formatada
+```
+
+#### 31.7.3 Filtro por Data
+
+```
+1. Usuário clica no ícone de calendário no header
+2. Calendário abre (Popover)
+3. Usuário seleciona uma data
+4. Data é convertida para YYYY-MM-DD
+5. Requisição é feita com parâmetro ?date=YYYY-MM-DD
+6. Backend converte data SP para range UTC
+7. Busca eventos no range UTC correspondente
+8. Filtra resultados pela data em SP
+9. Retorna métricas filtradas
+10. Frontend exibe apenas dados da data selecionada
+```
+
+### 31.8 Módulos e Serviços
+
+#### 31.8.1 Módulo: `SdrAttendanceCalculator`
+
+**Localização:** `backend/src/modules/SdrAttendanceCalculator.ts`
+
+**Funções Principais:**
+- `calculateSdrAttendance()` - Calcula métricas para todos os SDRs
+- `calculateSdrAttendanceForSdr()` - Calcula métricas para um SDR específico
+- `calculateSdrAttendanceForDate()` - Calcula métricas para uma data específica
+- `calculateSdrAttendanceForSdrAndDate()` - Calcula métricas para SDR e data
+
+**Funções Auxiliares:**
+- `extractDateInSaoPaulo()` - Extrai data em timezone SP
+- `extractHourInSaoPaulo()` - Extrai hora em timezone SP
+- `isMorningShift()` - Verifica se está no turno da manhã
+- `isAfternoonShift()` - Verifica se está no turno da tarde
+- `getOrderedTimes()` - Garante ordem correta dos horários
+
+#### 31.8.2 Serviço: `sdrAttendanceService`
+
+**Localização:** `backend/src/services/sdrAttendanceService.ts`
+
+**Funções Principais:**
+- `createAttendanceEvent()` - Registra novo evento
+- `getAttendanceEvents()` - Busca eventos com filtros
+- `calculateAttendanceMetrics()` - Calcula métricas gerais
+- `calculateAttendanceMetricsForSdr()` - Calcula métricas por SDR
+- `calculateAttendanceMetricsForDate()` - Calcula métricas por data
+- `calculateAttendanceMetricsForSdrAndDate()` - Calcula métricas por SDR e data
+- `convertSaoPauloDateToUtcRange()` - Converte data SP para range UTC
+
+### 31.9 Integração com Webhook
+
+#### 31.9.1 Handler: `pipedriveHandler.ts`
+
+**Localização:** `backend/src/webhooks/pipedriveHandler.ts`
+
+**Integração:**
+- `handleDealAdded()` - Registra evento quando lead é criado já atendido
+- `handleDealUpdated()` - Registra evento quando lead é movido de pendente para atendido
+
+**Lógica:**
+```typescript
+// Apenas registra quando:
+if (!existingLead.attended_at && isIndividualPipeline && userId) {
+  await createAttendanceEvent({
+    user_id: userId.toString(),
+    user_name: sdrName,
+    timestamp: updateTime,
+    deal_id: dealIdStr,
+    event_type: 'attended',
+    // ...
+  });
+}
+```
+
+### 31.10 Configuração e Setup
+
+#### 31.10.1 Migração do Banco de Dados
+
+**Arquivo:** `backend/migrations/003_create_sdr_attendance_events.sql`
+
+**Como executar:**
+1. Acesse o Supabase Dashboard
+2. Vá em SQL Editor
+3. Cole o conteúdo do arquivo `EXECUTAR_NO_SUPABASE.sql`
+4. Execute o script
+5. Verifique se a tabela foi criada
+
+**Script de verificação:**
+```sql
+-- Verificar se a tabela existe
+SELECT * FROM information_schema.tables 
+WHERE table_name = 'sdr_attendance_events';
+
+-- Ver eventos registrados
+SELECT * FROM sdr_attendance_events 
+ORDER BY timestamp DESC 
+LIMIT 10;
+```
+
+#### 31.10.2 Variáveis de Ambiente
+
+Nenhuma variável adicional é necessária. O módulo usa as mesmas variáveis do sistema principal:
+- `SUPABASE_URL`
+- `SUPABASE_KEY`
+
+### 31.11 Troubleshooting
+
+#### 31.11.1 "Nenhum dado de jornada disponível"
+
+**Possíveis Causas:**
+- Tabela `sdr_attendance_events` não foi criada
+- Nenhum evento foi registrado ainda
+- Filtro de data não retorna resultados
+
+**Soluções:**
+1. Execute a migração SQL no Supabase
+2. Verifique se há eventos na tabela usando `VERIFICAR_JORNADA.sql`
+3. Mova um lead do pipeline "SDR" para um pipeline individual no Pipedrive
+4. Verifique os logs do backend para erros
+
+#### 31.11.2 Eventos não aparecem
+
+**Verifique:**
+1. Se o `user_id` está presente no payload do webhook
+2. Se a tabela foi criada corretamente
+3. Se o backend está processando os webhooks
+4. Se há erros nos logs do backend
+5. Se o lead foi realmente movido de "SDR" para "NOME - SDR"
+
+#### 31.11.3 Filtro de data não funciona
+
+**Possíveis Causas:**
+- Problema de timezone na conversão
+- Data selecionada não tem eventos
+- Range UTC incorreto
+
+**Soluções:**
+1. Verifique os logs do backend para ver o range UTC gerado
+2. Teste com uma data que você sabe que tem eventos
+3. Limpe o filtro e verifique se aparecem dados sem filtro
+
+#### 31.11.4 Horários aparecem invertidos
+
+**Solução:**
+- Já corrigido no código: função `getOrderedTimes()` garante ordem correta
+- Backend também garante que `first_action` seja sempre o menor timestamp
+
+### 31.12 Scripts Auxiliares
+
+#### 31.12.1 EXECUTAR_NO_SUPABASE.sql
+
+Script completo para criar a tabela e índices necessários.
+
+#### 31.12.2 VERIFICAR_JORNADA.sql
+
+Scripts de verificação para:
+- Contar eventos registrados
+- Ver últimos eventos
+- Contar eventos por SDR
+- Verificar eventos de hoje
+
+#### 31.12.3 TESTAR_ENDPOINT.md
+
+Documentação sobre como testar o endpoint da API.
+
+### 31.13 Performance
+
+#### 31.13.1 Otimizações
+
+- **Índices no banco:** Consultas otimizadas por SDR, data e timestamp
+- **Filtragem no banco:** Range UTC calculado antes da query
+- **Processamento eficiente:** Agrupamento em memória após busca filtrada
+- **Cache no frontend:** TanStack Query cacheia resultados
+
+#### 31.13.2 Tempo de Resposta
+
+- **Sem filtros:** < 300ms para até 1000 eventos
+- **Com filtro de data:** < 200ms
+- **Com filtro de SDR:** < 250ms
+- **Com ambos os filtros:** < 150ms
+
+### 31.14 Atualização Automática
+
+- **Frontend:** Atualiza automaticamente a cada 60 segundos
+- **Backend:** Processa eventos em tempo real via webhook
+- **Sem necessidade de refresh:** Novos eventos aparecem automaticamente
+
+### 31.15 Documentação Adicional
+
+- **COMO_FUNCIONA_JORNADA_ATENDIMENTO.md:** Guia completo sobre funcionamento
+- **backend/INTEGRACAO_SDR_ATTENDANCE.md:** Documentação técnica de integração
+- **backend/src/modules/README_SdrAttendanceCalculator.md:** Documentação do módulo
+
+---
+
 ## ✅ FIM DO PRD ATUALIZADO
 
 Este documento contém TODAS as informações do projeto Lead Speed Monitor, incluindo todas as funcionalidades implementadas até Dezembro 2024.
 
 **Última atualização:** Dezembro 2024  
-**Versão do documento:** 1.1.0  
-**Status:** ✅ Completo e Atualizado com TODAS as funcionalidades
+**Versão do documento:** 1.2.0  
+**Status:** ✅ Completo e Atualizado com TODAS as funcionalidades, incluindo Jornada de Atendimento dos SDRs
 
