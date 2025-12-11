@@ -1,6 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Clock, TrendingUp, AlertCircle, Users, Award, AlertTriangle } from "lucide-react";
 import { Lead, SDRPerformance, formatTime } from "@/lib/mockData";
+import { useQuery } from "@tanstack/react-query";
+import { fetchTodayAttendedLeads } from "@/lib/api";
 
 interface StatsCardsProps {
   leads: Lead[];
@@ -17,6 +19,13 @@ export const StatsCards = ({
   importantPendingCount = 0,
   onImportantClick
 }: StatsCardsProps) => {
+  // Buscar leads atendidos hoje diretamente do backend (independente do filtro de período)
+  const { data: todayAttendedLeads = [] } = useQuery({
+    queryKey: ['today-attended-leads'],
+    queryFn: fetchTodayAttendedLeads,
+    refetchInterval: 60000, // Atualiza a cada 60 segundos
+  });
+
   const attendedLeads = leads.filter(l => l.sla_minutes !== null);
   const pendingLeads = leads.filter(l => l.sla_minutes === null);
   
@@ -28,11 +37,8 @@ export const StatsCards = ({
     ? Math.max(...attendedLeads.map(l => l.sla_minutes || 0))
     : 0;
   
-  const todayLeads = attendedLeads.filter(l => {
-    const today = new Date();
-    const leadDate = new Date(l.attended_at || "");
-    return leadDate.toDateString() === today.toDateString();
-  }).length;
+  // Contar leads atendidos hoje (busca direta do backend, independente do filtro de período)
+  const todayLeads = todayAttendedLeads.length;
 
   const getColorClass = (minutes: number) => {
     if (minutes <= 30) return "text-success";

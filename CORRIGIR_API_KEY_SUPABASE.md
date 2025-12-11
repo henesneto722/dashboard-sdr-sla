@@ -172,3 +172,5 @@ Após corrigir a chave:
 3. ✅ Verifique os logs
 4. ✅ Verifique se o lead aparece no dashboard
 
+
+

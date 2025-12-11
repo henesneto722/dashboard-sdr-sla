@@ -357,3 +357,5 @@ Após identificar o problema:
 3. ✅ Verifique os logs
 4. ✅ Confirme que os dados aparecem
 
+
+

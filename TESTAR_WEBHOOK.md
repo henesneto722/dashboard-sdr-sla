@@ -164,3 +164,5 @@ Se todos os testes passaram, seu sistema está funcionando! 🚀
 - Teste com diferentes tipos de deals
 - Ajuste conforme necessário
 
+
+

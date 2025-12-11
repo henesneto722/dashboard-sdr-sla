@@ -134,3 +134,12 @@ export async function fetchImportantPendingLeads(): Promise<{ count: number; lea
   return json.data;
 }
 
+/**
+ * Busca leads atendidos hoje (independente de quando foram criados)
+ */
+export async function fetchTodayAttendedLeads(): Promise<Lead[]> {
+  const response = await fetch(`${API_BASE_URL}/api/leads/today-attended`);
+  const json: ApiResponse<Lead[]> = await response.json();
+  return json.data;
+}
+

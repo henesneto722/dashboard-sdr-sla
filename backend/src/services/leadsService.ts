@@ -452,6 +452,37 @@ export async function getHourlyPerformance(): Promise<HourlyPerformance[]> {
 }
 
 /**
+ * GET /leads/today-attended - Leads atendidos hoje (independente de quando foram criados)
+ * Usa attended_at para filtrar, não entered_at
+ */
+export async function getTodayAttendedLeads(): Promise<LeadSLA[]> {
+  // Início do dia atual (00:00:00)
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayStartISO = todayStart.toISOString();
+  
+  // Fim do dia atual (23:59:59)
+  const todayEnd = new Date();
+  todayEnd.setHours(23, 59, 59, 999);
+  const todayEndISO = todayEnd.toISOString();
+
+  const { data: leads, error } = await supabase
+    .from('leads_sla')
+    .select('*')
+    .gte('attended_at', todayStartISO)
+    .lte('attended_at', todayEndISO)
+    .not('attended_at', 'is', null)
+    .not('sla_minutes', 'is', null)
+    .order('attended_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Erro ao buscar leads atendidos hoje: ${error.message}`);
+  }
+
+  return leads || [];
+}
+
+/**
  * GET /leads/slowest - Leads com maior tempo de SLA
  */
 export async function getSlowestLeads(limit: number = 20): Promise<LeadSLA[]> {

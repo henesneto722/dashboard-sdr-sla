@@ -9,7 +9,8 @@ import {
   getImportantPendingLeads,
   getLeadsWithFilters,
   getLeadsPaginated,
-  getUniqueSDRs 
+  getUniqueSDRs,
+  getTodayAttendedLeads
 } from '../services/leadsService.js';
 import { ApiResponse, LeadSLA, LeadsQueryFilters } from '../types/index.js';
 
@@ -159,6 +160,33 @@ router.get('/paginated', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao buscar leads paginados',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * GET /api/leads/today-attended
+ * Retorna leads atendidos hoje (independente de quando foram criados)
+ */
+router.get('/today-attended', async (req: Request, res: Response) => {
+  try {
+    const leads = await getTodayAttendedLeads();
+    
+    const response: ApiResponse<LeadSLA[]> = {
+      success: true,
+      data: leads,
+      message: `${leads.length} leads atendidos hoje`,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Erro em /leads/today-attended:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar leads atendidos hoje',
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       timestamp: new Date().toISOString(),
     });
