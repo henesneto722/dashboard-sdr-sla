@@ -130,14 +130,14 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
       case 'added':
         await handleDealAdded(
           dealId, dealTitle, addTime, pipelineId, sdrName, 
-          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, res
         );
         break;
 
       case 'updated':
         await handleDealUpdated(
           dealId, dealTitle, addTime, pipelineId, sdrName,
-          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, res
         );
         break;
 
@@ -145,7 +145,7 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
         console.log(`Ação ${action} - criando lead por padrão`);
         await handleDealAdded(
           dealId, dealTitle, addTime, pipelineId, sdrName,
-          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, res
         );
     }
   } catch (error) {
@@ -196,6 +196,7 @@ async function handleDealAdded(
   isMainPipeline: boolean,
   isIndividualPipeline: boolean,
   updateTime: string,
+  userId: string | number | undefined,
   res: Response
 ): Promise<void> {
   try {
@@ -306,6 +307,7 @@ async function handleDealUpdated(
   isMainPipeline: boolean,
   isIndividualPipeline: boolean,
   updateTime: string,
+  userId: string | number | undefined,
   res: Response
 ): Promise<void> {
   try {
