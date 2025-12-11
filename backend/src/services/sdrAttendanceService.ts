@@ -196,22 +196,44 @@ export async function calculateAttendanceMetricsForSdr(
 }
 
 /**
+ * Converte uma data em São Paulo para range UTC
+ * São Paulo está UTC-3 (padrão) ou UTC-2 (horário de verão)
+ * Para garantir que capturamos todo o dia, usamos um range que cobre ambos os casos
+ */
+function convertSaoPauloDateToUtcRange(dateStr: string): { start: string; end: string } {
+  // São Paulo pode estar UTC-3 ou UTC-2
+  // 00:00 SP = 03:00 UTC (UTC-3) ou 02:00 UTC (UTC-2)
+  // 23:59 SP = 02:59 UTC do dia seguinte (UTC-3) ou 01:59 UTC do dia seguinte (UTC-2)
+  // Para garantir, buscamos desde 01:00 UTC do dia até 06:00 UTC do dia seguinte
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const startUTC = new Date(Date.UTC(year, month - 1, day, 1, 0, 0));
+  const endUTC = new Date(Date.UTC(year, month - 1, day + 1, 6, 0, 0));
+  
+  return {
+    start: startUTC.toISOString(),
+    end: endUTC.toISOString(),
+  };
+}
+
+/**
  * Calcula métricas para uma data específica
  */
 export async function calculateAttendanceMetricsForDate(
-  date: string, // YYYY-MM-DD
+  date: string, // YYYY-MM-DD (timezone São Paulo)
   filters?: {
     user_id?: string;
   }
 ): Promise<SdrDailyMetrics[]> {
   try {
-    const startDate = `${date}T00:00:00Z`;
-    const endDate = `${date}T23:59:59Z`;
+    // Converter data de São Paulo para range UTC
+    const { start, end } = convertSaoPauloDateToUtcRange(date);
+    
+    console.log(`📅 Buscando eventos para data ${date} (SP): ${start} até ${end} (UTC)`);
 
     const events = await getAttendanceEvents({
       user_id: filters?.user_id,
-      start_date: startDate,
-      end_date: endDate,
+      start_date: start,
+      end_date: end,
     });
 
     const flowEvents = convertToPipedriveFlowEvents(events);
@@ -227,16 +249,18 @@ export async function calculateAttendanceMetricsForDate(
  */
 export async function calculateAttendanceMetricsForSdrAndDate(
   sdrId: string,
-  date: string // YYYY-MM-DD
+  date: string // YYYY-MM-DD (timezone São Paulo)
 ): Promise<SdrDailyMetrics | null> {
   try {
-    const startDate = `${date}T00:00:00Z`;
-    const endDate = `${date}T23:59:59Z`;
+    // Converter data de São Paulo para range UTC
+    const { start, end } = convertSaoPauloDateToUtcRange(date);
+    
+    console.log(`📅 Buscando eventos para SDR ${sdrId} na data ${date} (SP): ${start} até ${end} (UTC)`);
 
     const events = await getAttendanceEvents({
       user_id: sdrId,
-      start_date: startDate,
-      end_date: endDate,
+      start_date: start,
+      end_date: end,
     });
 
     const flowEvents = convertToPipedriveFlowEvents(events);

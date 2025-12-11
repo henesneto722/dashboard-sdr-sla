@@ -237,15 +237,49 @@ export function calculateSdrAttendance(
       // Turno da Manhã
       if (!metrics.morning.first_action) {
         metrics.morning.first_action = event.timestamp;
+      } else {
+        // Garantir que first_action seja sempre o menor timestamp
+        const currentFirst = new Date(metrics.morning.first_action);
+        const eventTime = new Date(event.timestamp);
+        if (eventTime.getTime() < currentFirst.getTime()) {
+          metrics.morning.first_action = event.timestamp;
+        }
       }
-      metrics.morning.last_action = event.timestamp;
+      
+      // Garantir que last_action seja sempre o maior timestamp
+      if (!metrics.morning.last_action) {
+        metrics.morning.last_action = event.timestamp;
+      } else {
+        const currentLast = new Date(metrics.morning.last_action);
+        const eventTime = new Date(event.timestamp);
+        if (eventTime.getTime() > currentLast.getTime()) {
+          metrics.morning.last_action = event.timestamp;
+        }
+      }
       metrics.morning.action_count++;
     } else if (isAfternoonShift(hour)) {
       // Turno da Tarde
       if (!metrics.afternoon.first_action) {
         metrics.afternoon.first_action = event.timestamp;
+      } else {
+        // Garantir que first_action seja sempre o menor timestamp
+        const currentFirst = new Date(metrics.afternoon.first_action);
+        const eventTime = new Date(event.timestamp);
+        if (eventTime.getTime() < currentFirst.getTime()) {
+          metrics.afternoon.first_action = event.timestamp;
+        }
       }
-      metrics.afternoon.last_action = event.timestamp;
+      
+      // Garantir que last_action seja sempre o maior timestamp
+      if (!metrics.afternoon.last_action) {
+        metrics.afternoon.last_action = event.timestamp;
+      } else {
+        const currentLast = new Date(metrics.afternoon.last_action);
+        const eventTime = new Date(event.timestamp);
+        if (eventTime.getTime() > currentLast.getTime()) {
+          metrics.afternoon.last_action = event.timestamp;
+        }
+      }
       metrics.afternoon.action_count++;
     }
     // Se não está em nenhum turno (fora de 06-12h e 13-18h), não contabiliza

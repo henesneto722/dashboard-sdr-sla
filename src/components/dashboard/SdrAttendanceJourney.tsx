@@ -3,10 +3,16 @@
  * Mostra métricas de turnos (manhã e tarde) por SDR e data
  */
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { fetchSdrAttendance, SdrDailyMetrics } from "@/lib/api";
 import { Loader2, Clock, Sunrise, Sunset, Calendar, Users, Activity } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 /**
  * Formata timestamp UTC para horário de São Paulo
@@ -44,14 +50,36 @@ function formatDate(dateStr: string): string {
 }
 
 /**
+ * Ordena timestamps e retorna o primeiro e último
+ */
+function getOrderedTimes(first: string | null, last: string | null): { first: string | null; last: string | null } {
+  if (!first || !last) return { first, last };
+  
+  try {
+    const firstDate = new Date(first);
+    const lastDate = new Date(last);
+    
+    // Garantir que first seja o menor e last seja o maior
+    if (firstDate.getTime() > lastDate.getTime()) {
+      return { first: last, last: first };
+    }
+    
+    return { first, last };
+  } catch {
+    return { first, last };
+  }
+}
+
+/**
  * Calcula duração do turno em minutos
  */
 function calculateDuration(first: string | null, last: string | null): number | null {
   if (!first || !last) return null;
   
   try {
-    const firstDate = new Date(first);
-    const lastDate = new Date(last);
+    const { first: orderedFirst, last: orderedLast } = getOrderedTimes(first, last);
+    const firstDate = new Date(orderedFirst!);
+    const lastDate = new Date(orderedLast!);
     const diffMs = lastDate.getTime() - firstDate.getTime();
     return Math.round(diffMs / 60000); // minutos
   } catch {
@@ -78,10 +106,18 @@ interface SdrAttendanceJourneyProps {
   date?: string;
 }
 
-export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps) => {
+export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendanceJourneyProps) => {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    initialDate ? new Date(initialDate + 'T00:00:00') : undefined
+  );
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+  // Converter Date para string YYYY-MM-DD para a API
+  const dateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined;
+
   const { data: metrics, isLoading, error } = useQuery<SdrDailyMetrics[]>({
-    queryKey: ['sdr-attendance', sdrId, date],
-    queryFn: () => fetchSdrAttendance({ sdr_id: sdrId, date }),
+    queryKey: ['sdr-attendance', sdrId, dateString],
+    queryFn: () => fetchSdrAttendance({ sdr_id: sdrId, date: dateString }),
     refetchInterval: 60000, // Atualiza a cada 60 segundos
   });
 
@@ -89,15 +125,72 @@ export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps)
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20">
-              <Calendar className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30"
+                  >
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      setSelectedDate(date);
+                      setIsCalendarOpen(false);
+                    }}
+                    disabled={(date) => {
+                      return date > new Date();
+                    }}
+                    locale={ptBR}
+                    className="rounded-md border"
+                  />
+                  {selectedDate && (
+                    <div className="p-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedDate(undefined);
+                          setIsCalendarOpen(false);
+                        }}
+                      >
+                        Limpar filtro
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              <div>
+                <CardTitle>Jornada de Atendimento dos SDRs</CardTitle>
+                <CardDescription>
+                  Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
+                </CardDescription>
+              </div>
             </div>
-            Jornada de Atendimento dos SDRs
-          </CardTitle>
-          <CardDescription>
-            Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
-          </CardDescription>
+            {selectedDate && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedDate(undefined)}
+                  className="text-xs"
+                >
+                  Limpar
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center h-[300px] gap-3">
@@ -113,15 +206,72 @@ export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps)
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20">
-              <Calendar className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30"
+                  >
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      setSelectedDate(date);
+                      setIsCalendarOpen(false);
+                    }}
+                    disabled={(date) => {
+                      return date > new Date();
+                    }}
+                    locale={ptBR}
+                    className="rounded-md border"
+                  />
+                  {selectedDate && (
+                    <div className="p-3 border-t">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setSelectedDate(undefined);
+                          setIsCalendarOpen(false);
+                        }}
+                      >
+                        Limpar filtro
+                      </Button>
+                    </div>
+                  )}
+                </PopoverContent>
+              </Popover>
+              <div>
+                <CardTitle>Jornada de Atendimento dos SDRs</CardTitle>
+                <CardDescription>
+                  Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
+                </CardDescription>
+              </div>
             </div>
-            Jornada de Atendimento dos SDRs
-          </CardTitle>
-          <CardDescription>
-            Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
-          </CardDescription>
+            {selectedDate && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedDate(undefined)}
+                  className="text-xs"
+                >
+                  Limpar
+                </Button>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center h-[300px] gap-3 text-center">
@@ -153,17 +303,62 @@ export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps)
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Mostrar cards de estatísticas mesmo sem dados, especialmente o calendário */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-muted/30 rounded-lg p-3 border border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">SDRs Ativos</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">0</p>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3 border border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Total de Ações</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">0</p>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3 border border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Dias Registrados</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">0</p>
+            </div>
+          </div>
+
+          {/* Mensagem de estado vazio com ações */}
           <div className="flex flex-col items-center justify-center h-[300px] gap-4 text-center px-4">
             <div className="p-4 bg-muted/50 rounded-full">
               <Users className="h-12 w-12 text-muted-foreground/50" />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-lg font-medium text-foreground">
-                Nenhum dado de jornada disponível
+                {selectedDate 
+                  ? `Nenhum dado disponível para ${format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}`
+                  : "Nenhum dado de jornada disponível"
+                }
               </p>
               <p className="text-sm text-muted-foreground max-w-md">
-                Os eventos são registrados quando leads são movidos do pipeline principal "SDR" para pipelines individuais "NOME - SDR".
+                {selectedDate 
+                  ? "Não há eventos registrados para esta data. Tente selecionar outra data ou limpar o filtro."
+                  : "Os eventos são registrados quando leads são movidos do pipeline principal \"SDR\" para pipelines individuais \"NOME - SDR\"."
+                }
               </p>
+              
+              {/* Botão para limpar filtro quando há filtro ativo */}
+              {selectedDate && (
+                <div className="flex items-center justify-center mt-4">
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => setSelectedDate(undefined)}
+                  >
+                    Ver todos os dados
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -179,15 +374,75 @@ export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps)
   return (
     <Card className="mb-8 border-border hover:shadow-lg transition-all duration-300 dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-900/90 dark:border-slate-700/50">
       <CardHeader>
-        <CardTitle className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20">
-            <Calendar className="h-5 w-5 text-primary" />
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30"
+                >
+                  <Calendar className="h-5 w-5 text-primary" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => {
+                    setSelectedDate(date);
+                    setIsCalendarOpen(false);
+                  }}
+                  disabled={(date) => {
+                    // Desabilitar datas futuras
+                    return date > new Date();
+                  }}
+                  locale={ptBR}
+                  className="rounded-md border"
+                />
+                {selectedDate && (
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedDate(undefined);
+                        setIsCalendarOpen(false);
+                      }}
+                    >
+                      Limpar filtro
+                    </Button>
+                  </div>
+                )}
+              </PopoverContent>
+            </Popover>
+            <div>
+              <CardTitle className="flex items-center gap-3">
+                Jornada de Atendimento dos SDRs
+              </CardTitle>
+              <CardDescription>
+                Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
+              </CardDescription>
+            </div>
           </div>
-          Jornada de Atendimento dos SDRs
-        </CardTitle>
-        <CardDescription>
-          Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
-        </CardDescription>
+          {selectedDate && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedDate(undefined)}
+                className="text-xs"
+              >
+                Limpar
+              </Button>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {/* Estatísticas rápidas */}
@@ -206,13 +461,13 @@ export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps)
             </div>
             <p className="text-2xl font-bold text-foreground">{totalActions}</p>
           </div>
-          <div className="bg-muted/30 rounded-lg p-3 border border-border">
-            <div className="flex items-center gap-2 mb-1">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Dias Registrados</span>
+            <div className="bg-muted/30 rounded-lg p-3 border border-border">
+              <div className="flex items-center gap-2 mb-1">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Dias Registrados</span>
+              </div>
+              <p className="text-2xl font-bold text-foreground">{totalDays}</p>
             </div>
-            <p className="text-2xl font-bold text-foreground">{totalDays}</p>
-          </div>
         </div>
 
         {/* Tabela */}
@@ -268,17 +523,25 @@ export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps)
                     </td>
                     <td className="p-4">
                       {metric.morning.action_count > 0 ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-center gap-2 bg-yellow-500/10 rounded-md px-3 py-1.5 border border-yellow-500/20">
-                            <Sunrise className="h-3.5 w-3.5 text-yellow-500" />
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs font-medium text-foreground">
-                              {formatTime(metric.morning.first_action)} - {formatTime(metric.morning.last_action)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                            <span className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full font-medium">
-                              {metric.morning.action_count} ação{metric.morning.action_count !== 1 ? 'ões' : ''}
+                        <div className="space-y-1.5">
+                          {(() => {
+                            const { first, last } = getOrderedTimes(
+                              metric.morning.first_action,
+                              metric.morning.last_action
+                            );
+                            return (
+                              <div className="flex items-center justify-center gap-1.5 bg-yellow-500/10 rounded-md px-2 py-1 border border-yellow-500/20">
+                                <Sunrise className="h-3 w-3 text-yellow-500" />
+                                <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span className="text-xs font-medium text-foreground">
+                                  {formatTime(first)} - {formatTime(last)}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded-full font-medium">
+                              {metric.morning.action_count} ações
                             </span>
                             <span>•</span>
                             <span className="font-medium">{formatDuration(morningDuration)}</span>
@@ -292,17 +555,25 @@ export const SdrAttendanceJourney = ({ sdrId, date }: SdrAttendanceJourneyProps)
                     </td>
                     <td className="p-4">
                       {metric.afternoon.action_count > 0 ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-center gap-2 bg-orange-500/10 rounded-md px-3 py-1.5 border border-orange-500/20">
-                            <Sunset className="h-3.5 w-3.5 text-orange-500" />
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs font-medium text-foreground">
-                              {formatTime(metric.afternoon.first_action)} - {formatTime(metric.afternoon.last_action)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                            <span className="bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-full font-medium">
-                              {metric.afternoon.action_count} ação{metric.afternoon.action_count !== 1 ? 'ões' : ''}
+                        <div className="space-y-1.5">
+                          {(() => {
+                            const { first, last } = getOrderedTimes(
+                              metric.afternoon.first_action,
+                              metric.afternoon.last_action
+                            );
+                            return (
+                              <div className="flex items-center justify-center gap-1.5 bg-orange-500/10 rounded-md px-2 py-1 border border-orange-500/20">
+                                <Sunset className="h-3 w-3 text-orange-500" />
+                                <Clock className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span className="text-xs font-medium text-foreground">
+                                  {formatTime(first)} - {formatTime(last)}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                          <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="bg-orange-500/10 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded-full font-medium">
+                              {metric.afternoon.action_count} ações
                             </span>
                             <span>•</span>
                             <span className="font-medium">{formatDuration(afternoonDuration)}</span>
