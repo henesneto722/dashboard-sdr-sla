@@ -2379,7 +2379,14 @@ O sistema divide o dia em **2 turnos** (horário de São Paulo):
 
 Os dados são agrupados por:
 - **SDR** (`user_id` do Pipedrive)
+- **Nome do SDR** (`user_name` do Pipedrive) - **CRÍTICO**: Usado para separar SDRs com mesmo `user_id`
 - **Data** (dia civil em horário de São Paulo, formato YYYY-MM-DD)
+
+**Chave de Agrupamento:**
+- Quando `user_name` está disponível: `${user_id}|${user_name}|${date}`
+- Quando `user_name` não está disponível: `${user_id}|${date}`
+
+**Importante:** Esta lógica garante que SDRs com o mesmo `user_id` mas nomes diferentes (ex: ALEXANDRE, LUANA, LUCAS) apareçam em linhas separadas na tabela.
 
 ### 31.4 Estrutura de Dados
 
