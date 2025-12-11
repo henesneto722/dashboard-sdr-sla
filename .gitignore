@@ -27,3 +27,7 @@ dist-ssr
 .env
 backend/.env
 *.env.local
+
+# Diretórios antigos que não devem ser rastreados
+dashboard-sdr-sla/
+lead-speed-monitor/
