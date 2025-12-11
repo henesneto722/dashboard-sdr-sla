@@ -2762,6 +2762,11 @@ Documentação sobre como testar o endpoint da API.
 Este documento contém TODAS as informações do projeto Lead Speed Monitor, incluindo todas as funcionalidades implementadas até Dezembro 2024.
 
 **Última atualização:** Dezembro 2024  
-**Versão do documento:** 1.2.0  
+**Versão do documento:** 1.2.1  
 **Status:** ✅ Completo e Atualizado com TODAS as funcionalidades, incluindo Jornada de Atendimento dos SDRs
+
+**Correções Recentes (v1.2.1):**
+- ✅ Correção de agrupamento de SDRs usando `user_name` na chave de agrupamento
+- ✅ Separação correta de SDRs com mesmo `user_id` mas nomes diferentes
+- ✅ Cada SDR agora aparece em sua própria linha, mesmo compartilhando o mesmo ID
 
