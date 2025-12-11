@@ -57,3 +57,5 @@ ORDER BY ordinal_position;
 -- ✅ Tabela pronta para receber dados reais do Pipedrive
 -- ============================================
 
+
+

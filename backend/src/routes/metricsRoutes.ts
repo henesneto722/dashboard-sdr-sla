@@ -7,9 +7,10 @@ import {
   getGeneralMetrics, 
   getSDRRanking, 
   getTimelineData,
-  getHourlyPerformance 
+  getHourlyPerformance,
+  getDailyAverage
 } from '../services/leadsService.js';
-import { ApiResponse, GeneralMetrics, SDRPerformance, HourlyPerformance } from '../types/index.js';
+import { ApiResponse, GeneralMetrics, SDRPerformance, HourlyPerformance, DailyAverage } from '../types/index.js';
 
 const router = Router();
 
@@ -111,6 +112,52 @@ router.get('/hourly-performance', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao buscar performance por hora',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * GET /api/metrics/daily-average
+ * Retorna tempo médio por dia dos últimos 7 dias (janela deslizante)
+ */
+router.get('/daily-average', async (req: Request, res: Response) => {
+  console.log('\n📥 [ROTA] GET /api/metrics/daily-average - Requisição recebida');
+  
+  try {
+    const dailyData = await getDailyAverage();
+    
+    console.log(`✅ [ROTA] Dados retornados com sucesso: ${dailyData.length} dias`);
+    
+    const response: ApiResponse<DailyAverage[]> = {
+      success: true,
+      data: dailyData,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('\n❌ [ROTA] Erro em /metrics/daily-average:');
+    console.error('   Tipo:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('   Mensagem:', error instanceof Error ? error.message : String(error));
+    
+    if (error instanceof Error) {
+      console.error('   Stack:', error.stack);
+      
+      // Verificar tipo específico de erro
+      if (error.message.includes('fetch failed')) {
+        console.error('   🔴 ERRO DE CONEXÃO: Não foi possível conectar ao Supabase');
+      } else if (error.message.includes('Invalid API key')) {
+        console.error('   🔴 ERRO DE AUTENTICAÇÃO: Chave API inválida');
+      } else if (error.message.includes('relation') && error.message.includes('does not exist')) {
+        console.error('   🔴 ERRO DE TABELA: Tabela não existe no banco de dados');
+      }
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar média diária',
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       timestamp: new Date().toISOString(),
     });

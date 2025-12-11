@@ -69,6 +69,18 @@ export async function fetchHourlyPerformance() {
 }
 
 /**
+ * Busca tempo médio por dia (últimos 7 dias)
+ */
+export async function fetchDailyAverage() {
+  const response = await fetch(`${API_BASE_URL}/api/metrics/daily-average`);
+  const json: ApiResponse<{
+    date: string;
+    avg_sla: number;
+  }[]> = await response.json();
+  return json.data;
+}
+
+/**
  * Busca leads com filtros
  */
 export async function fetchLeads(filters?: {

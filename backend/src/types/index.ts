@@ -74,6 +74,11 @@ export interface HourlyPerformance {
   status: 'Bom' | 'Moderado' | 'Crítico';
 }
 
+export interface DailyAverage {
+  date: string; // Formato "DD/MM"
+  avg_sla: number; // Média arredondada em minutos
+}
+
 export interface TimelineData {
   date: string;
   leads: LeadSLA[];

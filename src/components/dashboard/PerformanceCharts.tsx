@@ -1,41 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lead } from "@/lib/mockData";
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
-import { BarChart3, LineChart as LineChartIcon } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart as LineChartIcon } from "lucide-react";
 
 interface PerformanceChartsProps {
   leads: Lead[];
 }
 
 export const PerformanceCharts = ({ leads }: PerformanceChartsProps) => {
-  // Dados para gráfico de barras (tempo médio por dia)
-  const dailyData = leads
-    .filter(l => l.sla_minutes !== null)
-    .reduce((acc, lead) => {
-      const date = new Date(lead.entered_at).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-      });
-      if (!acc[date]) {
-        acc[date] = { date, total: 0, count: 0 };
-      }
-      acc[date].total += lead.sla_minutes || 0;
-      acc[date].count += 1;
-      return acc;
-    }, {} as Record<string, { date: string; total: number; count: number }>);
-
-  const barChartData = Object.values(dailyData)
-    .map(({ date, total, count }) => ({
-      date,
-      average: Math.round(total / count),
-    }))
-    .slice(-14)
-    .sort((a, b) => {
-      const [dayA, monthA] = a.date.split("/").map(Number);
-      const [dayB, monthB] = b.date.split("/").map(Number);
-      return monthA === monthB ? dayA - dayB : monthA - monthB;
-    });
-
   // Dados para gráfico de linha (evolução semanal)
   const weeklyData = leads
     .filter(l => l.sla_minutes !== null)
@@ -71,27 +43,7 @@ export const PerformanceCharts = ({ leads }: PerformanceChartsProps) => {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-primary" />
-            Tempo Médio por Dia
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={barChartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="date" className="text-xs" />
-              <YAxis className="text-xs" />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="average" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
+    <div className="mb-8">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

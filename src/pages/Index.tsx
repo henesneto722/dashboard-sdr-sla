@@ -8,6 +8,7 @@ import { PerformanceCharts } from "@/components/dashboard/PerformanceCharts";
 import { Timeline } from "@/components/dashboard/Timeline";
 import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
 import { HourlyPerformance } from "@/components/dashboard/HourlyPerformance";
+import { AverageTimeChart } from "@/components/dashboard/AverageTimeChart";
 import { Activity, Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -288,6 +289,8 @@ const Index = () => {
                 )}
                 
                 <SDRRanking sdrPerformance={sdrPerformance} />
+                
+                <AverageTimeChart />
                 
                 <PerformanceCharts leads={filteredLeads} />
                 

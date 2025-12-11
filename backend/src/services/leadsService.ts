@@ -10,6 +10,7 @@ import {
   SDRPerformance,
   GeneralMetrics,
   HourlyPerformance,
+  DailyAverage,
   LeadsQueryFilters 
 } from '../types/index.js';
 import { 
@@ -300,6 +301,104 @@ export async function getTimelineData(): Promise<{ date: string; average: number
       count: data.count,
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * GET /metrics/daily-average - Tempo médio por dia (últimos 7 dias)
+ * Janela deslizante: sempre mostra os últimos 7 dias incluindo o dia atual
+ */
+export async function getDailyAverage(): Promise<DailyAverage[]> {
+  try {
+    console.log('📊 [getDailyAverage] Iniciando busca de média diária...');
+    
+    // Calcular data de 6 dias atrás (hoje + 6 dias = 7 dias total)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+    const sevenDaysAgoISO = sevenDaysAgo.toISOString();
+    
+    console.log('📅 [getDailyAverage] Buscando leads desde:', sevenDaysAgoISO);
+
+    // Query SQL otimizada usando RPC ou query direta
+    // Como Supabase não suporta TO_CHAR diretamente, vamos buscar os dados e processar
+    console.log('🔍 [getDailyAverage] Executando query no Supabase...');
+    const { data: leads, error } = await supabase
+      .from('leads_sla')
+      .select('attended_at, sla_minutes')
+      .gte('attended_at', sevenDaysAgoISO)
+      .not('attended_at', 'is', null)
+      .not('sla_minutes', 'is', null)
+      .order('attended_at', { ascending: true });
+
+    if (error) {
+      console.error('❌ [getDailyAverage] Erro do Supabase:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(`Erro ao buscar média diária: ${error.message} (Código: ${error.code})`);
+    }
+
+    console.log(`✅ [getDailyAverage] Query executada com sucesso. ${leads?.length || 0} leads encontrados.`);
+
+  // Agrupar por data (DD/MM)
+  const dailyMap = new Map<string, { total: number; count: number; date: Date }>();
+
+  leads?.forEach(lead => {
+    const attendedDate = new Date(lead.attended_at!);
+    const dateKey = attendedDate.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+    });
+    
+    // Usar a data completa para ordenação posterior
+    const dateOnly = new Date(attendedDate);
+    dateOnly.setHours(0, 0, 0, 0);
+    
+    const current = dailyMap.get(dateKey) || { total: 0, count: 0, date: dateOnly };
+    current.total += lead.sla_minutes!;
+    current.count += 1;
+    dailyMap.set(dateKey, current);
+  });
+
+    // Converter para array e ordenar por data
+    const result: DailyAverage[] = Array.from(dailyMap.entries())
+      .map(([dateFormatted, data]) => ({
+        date: dateFormatted,
+        avg_sla: Math.round(data.total / data.count),
+        _sortDate: data.date, // Manter data completa para ordenação
+      }))
+      .sort((a, b) => {
+        // Ordenar por data completa
+        return a._sortDate.getTime() - b._sortDate.getTime();
+      })
+      .map(({ date, avg_sla }) => ({ date, avg_sla })); // Remover campo auxiliar
+
+    console.log(`✅ [getDailyAverage] Processamento concluído. ${result.length} dias retornados.`);
+    return result;
+  } catch (error) {
+    console.error('❌ [getDailyAverage] Erro completo:', error);
+    
+    // Log detalhado do erro
+    if (error instanceof Error) {
+      console.error('   Tipo:', error.constructor.name);
+      console.error('   Mensagem:', error.message);
+      console.error('   Stack:', error.stack);
+    }
+    
+    // Verificar se é erro de conexão
+    if (error instanceof Error && error.message.includes('fetch failed')) {
+      console.error('🔴 [getDailyAverage] ERRO DE CONEXÃO detectado!');
+      console.error('   Possíveis causas:');
+      console.error('   1. SUPABASE_URL incorreto ou inacessível');
+      console.error('   2. Problema de rede/DNS');
+      console.error('   3. Supabase temporariamente indisponível');
+      console.error('   4. Firewall bloqueando conexão');
+    }
+    
+    throw error;
+  }
 }
 
 /**

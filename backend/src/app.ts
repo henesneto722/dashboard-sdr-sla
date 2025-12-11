@@ -11,8 +11,24 @@ import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-// Carregar variáveis de ambiente
-dotenv.config();
+// Carregar variáveis de ambiente PRIMEIRO (antes de qualquer outra importação)
+console.log('\n🔧 [APP] Carregando variáveis de ambiente...');
+const envResult = dotenv.config();
+
+if (envResult.error) {
+  console.warn('⚠️  [APP] Arquivo .env não encontrado ou erro ao carregar:', envResult.error.message);
+  console.warn('   Usando variáveis de ambiente do sistema...');
+} else {
+  console.log('✅ [APP] Arquivo .env carregado com sucesso!');
+}
+
+// Verificar se variáveis críticas estão definidas
+console.log('🔍 [APP] Verificando variáveis críticas:');
+console.log('   SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Definido' : '❌ Não definido');
+console.log('   SUPABASE_KEY:', process.env.SUPABASE_KEY ? '✅ Definido' : '❌ Não definido');
+console.log('   PIPEDRIVE_API_TOKEN:', process.env.PIPEDRIVE_API_TOKEN ? '✅ Definido' : '❌ Não definido');
+console.log('   PORT:', process.env.PORT || '3001 (padrão)');
+console.log('');
 
 // Importar rotas
 import metricsRoutes from './routes/metricsRoutes.js';
@@ -96,6 +112,7 @@ app.get('/', (req: Request, res: Response) => {
         ranking: 'GET /api/metrics/ranking',
         timeline: 'GET /api/metrics/timeline',
         hourlyPerformance: 'GET /api/metrics/hourly-performance',
+        dailyAverage: 'GET /api/metrics/daily-average',
       },
       leads: {
         slowest: 'GET /api/leads/slowest',
@@ -166,6 +183,7 @@ async function startServer() {
     console.log(`   GET  http://localhost:${PORT}/api/metrics/ranking`);
     console.log(`   GET  http://localhost:${PORT}/api/metrics/timeline`);
     console.log(`   GET  http://localhost:${PORT}/api/metrics/hourly-performance`);
+    console.log(`   GET  http://localhost:${PORT}/api/metrics/daily-average`);
     console.log(`   GET  http://localhost:${PORT}/api/leads/slowest`);
     console.log(`   GET  http://localhost:${PORT}/api/leads/pending`);
     console.log(`   GET  http://localhost:${PORT}/api/leads/detail`);
