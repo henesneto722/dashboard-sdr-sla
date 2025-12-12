@@ -34,6 +34,13 @@ import { cache, CACHE_KEYS, CACHE_TTL } from './cacheService.js';
  * Invalida o cache após criação
  */
 export async function createLead(data: LeadSLAInsert): Promise<LeadSLA | null> {
+  // Verificar se o lead já existe (idempotência - evita erro de duplicata)
+  const existingLead = await findLeadByPipedriveId(data.lead_id);
+  if (existingLead) {
+    console.log(`Lead ${data.lead_id} já existe. Retornando lead existente.`);
+    return existingLead;
+  }
+
   // Se já vem com attended_at, calcular o SLA
   let insertData: any = { ...data };
   
@@ -48,6 +55,15 @@ export async function createLead(data: LeadSLAInsert): Promise<LeadSLA | null> {
     .single();
 
   if (error) {
+    // Se o erro for de duplicata (pode acontecer em race conditions), buscar o lead existente
+    if (error.code === '23505' || error.message.includes('duplicate key') || error.message.includes('unique constraint')) {
+      console.log(`Lead ${data.lead_id} já existe (erro de duplicata detectado). Buscando lead existente...`);
+      const existing = await findLeadByPipedriveId(data.lead_id);
+      if (existing) {
+        return existing;
+      }
+    }
+    
     console.error('Erro ao criar lead:', error);
     throw new Error(`Erro ao criar lead: ${error.message}`);
   }
