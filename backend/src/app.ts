@@ -117,6 +117,7 @@ app.get('/', (req: Request, res: Response) => {
       leads: {
         slowest: 'GET /api/leads/slowest',
         pending: 'GET /api/leads/pending',
+        monthly: 'GET /api/leads/monthly',
         detail: 'GET /api/leads/detail',
         sdrs: 'GET /api/leads/sdrs',
         byId: 'GET /api/leads/:lead_id',

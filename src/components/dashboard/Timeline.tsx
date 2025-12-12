@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Lead, getPerformanceColor, formatTime } from "@/lib/mockData";
 import { Clock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,64 @@ const ITEMS_PER_PAGE = 15;
 
 interface TimelineProps {
   leads: Lead[];
+}
+
+/**
+ * Identifica o tipo de perfil do lead baseado no stage_name
+ */
+function getProfileType(stageName: string | null): {
+  label: string;
+  variant: 'default' | 'destructive' | 'secondary' | 'outline';
+  className: string;
+} {
+  if (!stageName) {
+    return {
+      label: 'Sem Perfil',
+      variant: 'outline',
+      className: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+    };
+  }
+
+  const stage = stageName.toLowerCase();
+
+  if (stage.includes('tem perfil') || stage === 'tem perfil') {
+    return {
+      label: 'Tem Perfil',
+      variant: 'destructive',
+      className: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30'
+    };
+  }
+
+  if (stage.includes('perfil menor') || stage === 'perfil menor') {
+    return {
+      label: 'Perfil Menor',
+      variant: 'secondary',
+      className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30'
+    };
+  }
+
+  if (stage.includes('inconclusivo') || stage === 'inconclusivo') {
+    return {
+      label: 'Inconclusivo',
+      variant: 'outline',
+      className: 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/30'
+    };
+  }
+
+  if (stage.includes('sem perfil') || stage === 'sem perfil') {
+    return {
+      label: 'Sem Perfil',
+      variant: 'outline',
+      className: 'bg-gray-500/10 text-gray-400 dark:text-gray-500 border-gray-500/20'
+    };
+  }
+
+  // Default
+  return {
+    label: 'Sem Perfil',
+    variant: 'outline',
+    className: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+  };
 }
 
 export const Timeline = ({ leads }: TimelineProps) => {
@@ -58,10 +117,20 @@ export const Timeline = ({ leads }: TimelineProps) => {
               return "text-danger";
             };
             
+            const profileInfo = getProfileType(lead.stage_name);
+            
             return (
               <div key={lead.lead_id} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium">{lead.lead_name}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{lead.lead_name}</span>
+                    <Badge 
+                      variant={profileInfo.variant}
+                      className={`text-xs font-medium ${profileInfo.className}`}
+                    >
+                      {profileInfo.label}
+                    </Badge>
+                  </div>
                   <div className="flex items-center gap-4 text-muted-foreground">
                     <span>{lead.sdr_name}</span>
                     <span className={`font-semibold ${getTextColor()}`}>

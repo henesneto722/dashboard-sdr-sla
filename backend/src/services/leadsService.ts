@@ -275,6 +275,38 @@ export async function getSDRRanking(): Promise<SDRPerformance[]> {
 }
 
 /**
+ * GET /api/leads/monthly - Busca TODOS os leads do mês atual (sem limite)
+ * Usado para filtragem client-side no ranking de SDRs
+ * 
+ * REGRA: Retorna todos os leads que foram ATENDIDOS desde o primeiro dia do mês atual
+ * - Início: 1º dia do mês atual às 00:00:00
+ * - Fim: Momento presente (NOW())
+ * - Filtra por attended_at (quando foi atendido) para garantir consistência com o card "Atendidos Hoje"
+ * - Sem limite de linhas (usa range 0-10000 para garantir todos os dados)
+ */
+export async function getAllMonthLeads(): Promise<LeadSLA[]> {
+  const monthStart = getMonthStart();
+
+  // Buscar todos os leads ATENDIDOS do mês (sem limite, usando range grande)
+  // IMPORTANTE: Filtra por attended_at para garantir que o ranking use a mesma métrica do card "Atendidos Hoje"
+  const { data: leads, error } = await supabase
+    .from('leads_sla')
+    .select('lead_id, sdr_id, sdr_name, entered_at, attended_at, sla_minutes')
+    .gte('attended_at', monthStart) // Filtrar por attended_at (quando foi atendido)
+    .not('attended_at', 'is', null) // Apenas leads que foram atendidos
+    .not('sla_minutes', 'is', null) // Apenas leads com SLA calculado
+    .not('sdr_id', 'is', null)
+    .order('attended_at', { ascending: false })
+    .range(0, 10000); // Limite alto para garantir que pegamos todos os leads
+
+  if (error) {
+    throw new Error(`Erro ao buscar leads do mês: ${error.message}`);
+  }
+
+  return leads || [];
+}
+
+/**
  * GET /metrics/timeline - Dados para gráfico de linha do tempo
  * 
  * REGRA: Acúmulo Diário (Dia Civil)

@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { calculateSDRPerformance, Lead, setThresholds, getThresholds } from "@/lib/mockData";
+import { calculateSDRPerformance, Lead, setThresholds, getThresholds, SDRPerformance } from "@/lib/mockData";
 import { fetchLeads, fetchSDRs, fetchImportantPendingLeads } from "@/lib/api";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { SDRRanking } from "@/components/dashboard/SDRRanking";
@@ -174,8 +174,11 @@ const Index = () => {
     return filtered;
   }, [allLeads, selectedSDR]);
 
-  // Calcular performance dos SDRs
+  // Calcular performance dos SDRs (para filtros locais)
   const sdrPerformance = useMemo(() => calculateSDRPerformance(filteredLeads), [filteredLeads]);
+
+  // Estado para armazenar ranking mensal (vindo do componente SDRRanking)
+  const [monthlyRanking, setMonthlyRanking] = useState<SDRPerformance[]>([]);
 
   // Lista única de SDRs (nomes para exibição)
   const uniqueSDRs = useMemo((): string[] => {
@@ -290,7 +293,8 @@ const Index = () => {
               <>
                 <StatsCards 
                   leads={filteredLeads} 
-                  sdrPerformance={sdrPerformance} 
+                  sdrPerformance={sdrPerformance}
+                  monthlyRanking={monthlyRanking}
                   isFilteredBySDR={selectedSDR !== "all"} 
                   importantPendingCount={importantPendingCount}
                   onImportantClick={handleImportantClick}
@@ -310,7 +314,7 @@ const Index = () => {
                   </div>
                 )}
                 
-                <SDRRanking sdrPerformance={sdrPerformance} />
+                <SDRRanking onMonthlyRankingChange={setMonthlyRanking} />
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                   <AverageTimeChart />

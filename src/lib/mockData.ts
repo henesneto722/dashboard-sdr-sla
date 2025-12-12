@@ -22,10 +22,17 @@ export interface SDRPerformance {
   sdr_name: string;
   average_time: number;
   leads_attended: number;
+  performance_score?: number; // Score combinado (tempo + quantidade)
 }
 
 /**
  * Calcula a performance de cada SDR baseado nos leads
+ * NOVA LÓGICA: Considera tanto tempo médio quanto quantidade de leads atendidos
+ * 
+ * Fórmula de Score:
+ * - Normaliza tempo médio (menor é melhor) e quantidade (maior é melhor)
+ * - Dá peso maior para quantidade (60%) vs tempo (40%)
+ * - Score final: quanto maior, melhor
  */
 export const calculateSDRPerformance = (leads: Lead[]): SDRPerformance[] => {
   const sdrMap = new Map<string, { total: number; count: number; name: string }>();
@@ -39,14 +46,52 @@ export const calculateSDRPerformance = (leads: Lead[]): SDRPerformance[] => {
     }
   });
   
-  return Array.from(sdrMap.entries())
+  const performances = Array.from(sdrMap.entries())
     .map(([sdr_id, data]) => ({
       sdr_id,
       sdr_name: data.name,
       average_time: data.count > 0 ? Math.round(data.total / data.count) : 0,
       leads_attended: data.count,
-    }))
-    .sort((a, b) => a.average_time - b.average_time);
+    }));
+
+  // Calcular scores combinados
+  if (performances.length === 0) return [];
+
+  // Encontrar valores máximos para normalização
+  const maxTime = Math.max(...performances.map(p => p.average_time), 1);
+  const maxLeads = Math.max(...performances.map(p => p.leads_attended), 1);
+
+  // Calcular score para cada SDR
+  const performancesWithScore = performances.map(perf => {
+    // Normalizar tempo (0-100, onde 0 = melhor tempo, 100 = pior tempo)
+    // Inverter para que menor tempo = maior score
+    const normalizedTime = maxTime > 0 ? (1 - (perf.average_time / maxTime)) * 100 : 0;
+    
+    // Normalizar quantidade (0-100, onde 100 = mais leads)
+    const normalizedLeads = maxLeads > 0 ? (perf.leads_attended / maxLeads) * 100 : 0;
+    
+    // Score combinado: 40% tempo + 60% quantidade
+    // Peso maior para quantidade porque é mais importante atender muitos leads
+    const performance_score = (normalizedTime * 0.4) + (normalizedLeads * 0.6);
+    
+    return {
+      ...perf,
+      performance_score: Math.round(performance_score * 100) / 100, // 2 casas decimais
+    };
+  });
+
+  // Ordenar por score (maior = melhor)
+  return performancesWithScore.sort((a, b) => {
+    const scoreA = a.performance_score || 0;
+    const scoreB = b.performance_score || 0;
+    
+    // Se scores iguais, desempata por quantidade de leads
+    if (Math.abs(scoreA - scoreB) < 0.01) {
+      return b.leads_attended - a.leads_attended;
+    }
+    
+    return scoreB - scoreA;
+  });
 };
 
 /**

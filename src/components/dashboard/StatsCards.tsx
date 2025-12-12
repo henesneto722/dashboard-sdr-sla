@@ -7,6 +7,7 @@ import { fetchTodayAttendedLeads } from "@/lib/api";
 interface StatsCardsProps {
   leads: Lead[];
   sdrPerformance: SDRPerformance[];
+  monthlyRanking?: SDRPerformance[]; // Ranking mensal para o card "Melhor SDR"
   isFilteredBySDR?: boolean; // true quando um SDR específico está selecionado
   importantPendingCount?: number; // número de leads importantes pendentes
   onImportantClick?: () => void; // callback ao clicar no card de leads importantes
@@ -14,7 +15,8 @@ interface StatsCardsProps {
 
 export const StatsCards = ({ 
   leads, 
-  sdrPerformance, 
+  sdrPerformance,
+  monthlyRanking = [], // Ranking mensal (usado para "Melhor SDR")
   isFilteredBySDR = false,
   importantPendingCount = 0,
   onImportantClick
@@ -94,16 +96,22 @@ export const StatsCards = ({
   ];
 
   // Card "Melhor SDR" só aparece quando NÃO está filtrado por SDR individual
+  // IMPORTANTE: Usa o ranking mensal (monthlyRanking) para determinar o melhor SDR
+  // O ranking mensal já considera tempo médio + quantidade de leads
+  const bestSDR = monthlyRanking.length > 0 ? monthlyRanking[0] : null;
+  
   const stats = isFilteredBySDR ? baseStats : [
     ...baseStats,
     {
       title: "Melhor SDR",
-      value: sdrPerformance[0]?.sdr_name.split(" ")[0] || "N/A",
+      value: bestSDR?.sdr_name.split(" ")[0] || "N/A",
       icon: Award,
       color: "text-emerald-500",
       bgColor: "bg-emerald-500/15",
       iconColor: "text-emerald-500",
-      subtitle: sdrPerformance[0] ? formatTime(sdrPerformance[0].average_time) : "",
+      subtitle: bestSDR 
+        ? `${bestSDR.leads_attended} leads • ${formatTime(bestSDR.average_time)}`
+        : "",
     },
   ];
 

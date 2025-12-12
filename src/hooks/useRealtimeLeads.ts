@@ -23,6 +23,7 @@ export function useRealtimeLeads({
   const channelRef = useRef<any>(null);
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const lastLeadCountRef = useRef<number>(0);
+  const realtimeFailedRef = useRef<boolean>(false); // Flag para evitar tentativas infinitas
 
   // Função para mostrar notificação de novo lead
   const showNewLeadNotification = useCallback((lead: any) => {
@@ -62,6 +63,11 @@ export function useRealtimeLeads({
 
   // Setup Supabase Realtime
   useEffect(() => {
+    // Se já falhou antes, não tentar novamente
+    if (realtimeFailedRef.current) {
+      return;
+    }
+
     if (!isRealtimeEnabled || !supabase) {
       console.log('📡 Realtime não configurado, usando apenas polling');
       return;
@@ -109,12 +115,23 @@ export function useRealtimeLeads({
         }
       )
       .subscribe((status) => {
-        console.log('📡 Status do Realtime:', status);
         if (status === 'SUBSCRIBED') {
-          toast.success('🔴 Conectado em tempo real', {
-            description: 'Dashboard atualiza automaticamente',
-            duration: 3000,
-          });
+          console.log('✅ Conectado ao Realtime com sucesso');
+          realtimeFailedRef.current = false; // Reset flag em caso de reconexão
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          // Se falhar, marcar como falho e não tentar mais
+          if (!realtimeFailedRef.current) {
+            console.warn('⚠️ Realtime falhou, usando apenas polling. Status:', status);
+            realtimeFailedRef.current = true;
+            // Limpar canal em caso de erro
+            if (channelRef.current) {
+              supabase.removeChannel(channelRef.current);
+              channelRef.current = null;
+            }
+          }
+        } else {
+          // Outros status (SUBSCRIBING, etc) - apenas logar sem erro
+          console.log('📡 Status do Realtime:', status);
         }
       });
 
@@ -122,9 +139,10 @@ export function useRealtimeLeads({
 
     // Cleanup
     return () => {
-      console.log('📡 Desconectando do Realtime...');
       if (channelRef.current) {
+        console.log('📡 Desconectando do Realtime...');
         supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, [onNewLead, onLeadUpdated, onRefresh, showNewLeadNotification, showLeadAttendedNotification]);

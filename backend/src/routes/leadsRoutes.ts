@@ -10,7 +10,8 @@ import {
   getLeadsWithFilters,
   getLeadsPaginated,
   getUniqueSDRs,
-  getTodayAttendedLeads
+  getTodayAttendedLeads,
+  getAllMonthLeads
 } from '../services/leadsService.js';
 import { ApiResponse, LeadSLA, LeadsQueryFilters } from '../types/index.js';
 
@@ -187,6 +188,33 @@ router.get('/today-attended', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Erro ao buscar leads atendidos hoje',
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+/**
+ * GET /api/leads/monthly
+ * Retorna TODOS os leads do mês atual (sem limite) para filtragem client-side
+ */
+router.get('/monthly', async (req: Request, res: Response) => {
+  try {
+    const leads = await getAllMonthLeads();
+    
+    const response: ApiResponse<LeadSLA[]> = {
+      success: true,
+      data: leads,
+      message: `${leads.length} leads do mês atual`,
+      timestamp: new Date().toISOString(),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Erro em /leads/monthly:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro ao buscar leads do mês',
       message: error instanceof Error ? error.message : 'Erro desconhecido',
       timestamp: new Date().toISOString(),
     });

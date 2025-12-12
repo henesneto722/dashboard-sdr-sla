@@ -45,6 +45,15 @@ export async function fetchSDRRanking(): Promise<SDRPerformance[]> {
 }
 
 /**
+ * Busca TODOS os leads do mês atual (sem limite) para filtragem client-side
+ */
+export async function fetchAllMonthLeads(): Promise<Lead[]> {
+  const response = await fetch(`${API_BASE_URL}/api/leads/monthly`);
+  const json: ApiResponse<Lead[]> = await response.json();
+  return json.data;
+}
+
+/**
  * Busca dados de timeline
  */
 export async function fetchTimeline() {
