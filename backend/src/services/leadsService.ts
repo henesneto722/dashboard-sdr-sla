@@ -305,9 +305,10 @@ export async function getAllMonthLeads(): Promise<LeadSLA[]> {
 
   // Buscar todos os leads ATENDIDOS do mês (sem limite, usando range grande)
   // IMPORTANTE: Filtra por attended_at para garantir que o ranking use a mesma métrica do card "Atendidos Hoje"
+  // Seleciona todos os campos (*) para garantir compatibilidade com o tipo LeadSLA
   const { data: leads, error } = await supabase
     .from('leads_sla')
-    .select('lead_id, sdr_id, sdr_name, entered_at, attended_at, sla_minutes')
+    .select('*') // Seleciona todos os campos para garantir compatibilidade com LeadSLA
     .gte('attended_at', monthStart) // Filtrar por attended_at (quando foi atendido)
     .not('attended_at', 'is', null) // Apenas leads que foram atendidos
     .not('sla_minutes', 'is', null) // Apenas leads com SLA calculado
