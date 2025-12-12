@@ -13,6 +13,9 @@ import { SdrAttendanceJourney } from "@/components/dashboard/SdrAttendanceJourne
 import { Activity, Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
 import { useRealtimeLeads } from "@/hooks/useRealtimeLeads";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationHistory } from "@/components/notifications/NotificationHistory";
+import { NotificationToaster } from "@/components/notifications/NotificationToaster";
+import { useNotifications } from "@/hooks/useNotifications";
 
 // Interface para SDR com id e nome
 interface SDRInfo {
@@ -60,6 +63,9 @@ const Index = () => {
     }
   };
 
+  // Hook de Notificações (deve vir antes para estar disponível no refreshData)
+  const { detectNewPendingLeads, detectAttendedLeads } = useNotifications();
+
   // Função de refresh (usada pelo realtime e polling)
   const refreshData = useCallback(async () => {
     try {
@@ -91,7 +97,7 @@ const Index = () => {
     } catch (err) {
       console.error('Erro ao atualizar dados:', err);
     }
-  }, []);
+  }, [detectNewPendingLeads, detectAttendedLeads]);
 
   // Hook de Realtime + Polling
   const { isRealtimeEnabled, forceRefresh } = useRealtimeLeads({
@@ -146,6 +152,14 @@ const Index = () => {
 
     loadData();
   }, [selectedPeriod, selectedSDR]);
+
+  // Detectar novos leads e leads atendidos quando os dados mudam
+  useEffect(() => {
+    if (allLeads.length > 0) {
+      detectNewPendingLeads(allLeads);
+      detectAttendedLeads(allLeads);
+    }
+  }, [allLeads, detectNewPendingLeads, detectAttendedLeads]);
 
   // Filtrar leads localmente (caso necessário)
   const filteredLeads = useMemo(() => {
@@ -220,12 +234,18 @@ const Index = () => {
                 <RefreshCw className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
               </button>
               
+              {/* Histórico de Notificações */}
+              <NotificationHistory />
+              
               {/* Toggle de tema */}
               <ThemeToggle />
             </div>
           </div>
         </div>
       </header>
+
+      {/* Sistema de Notificações Toast */}
+      <NotificationToaster />
 
       <main className="container mx-auto px-6 py-8">
         {/* Mensagem de erro */}
