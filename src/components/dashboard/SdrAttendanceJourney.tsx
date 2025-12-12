@@ -107,13 +107,33 @@ interface SdrAttendanceJourneyProps {
 }
 
 export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendanceJourneyProps) => {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    initialDate ? new Date(initialDate + 'T00:00:00') : undefined
-  );
+  // Função auxiliar para obter a data atual em horário de São Paulo
+  const getTodayInSaoPaulo = () => {
+    const now = new Date();
+    const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    return new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+  };
+
+  // Por padrão, mostrar apenas o dia atual
+  // Se houver initialDate, usar ela; caso contrário, usar a data atual
+  const getInitialDate = () => {
+    if (initialDate) {
+      return new Date(initialDate + 'T00:00:00');
+    }
+    return getTodayInSaoPaulo();
+  };
+
+  const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate());
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
+  // Função auxiliar para voltar ao dia atual
+  const goToToday = () => {
+    setSelectedDate(getTodayInSaoPaulo());
+  };
+
   // Converter Date para string YYYY-MM-DD para a API
-  const dateString = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : undefined;
+  // Sempre passar uma data (dia atual por padrão ou data selecionada)
+  const dateString = format(selectedDate, 'yyyy-MM-dd');
 
   const { data: metrics, isLoading, error } = useQuery<SdrDailyMetrics[]>({
     queryKey: ['sdr-attendance', sdrId, dateString],
@@ -151,21 +171,20 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                     locale={ptBR}
                     className="rounded-md border"
                   />
-                  {selectedDate && (
-                    <div className="p-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          setSelectedDate(undefined);
-                          setIsCalendarOpen(false);
-                        }}
-                      >
-                        Limpar filtro
-                      </Button>
-                    </div>
-                  )}
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        // Voltar para o dia atual
+                        goToToday();
+                        setIsCalendarOpen(false);
+                      }}
+                    >
+                      Ver dia atual
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
               <div>
@@ -175,21 +194,31 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                 </CardDescription>
               </div>
             </div>
-            {selectedDate && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedDate(undefined)}
-                  className="text-xs"
-                >
-                  Limpar
-                </Button>
-              </div>
-            )}
+            {(() => {
+              const now = new Date();
+              const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+              const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+              const isToday = selectedDate.getTime() === today.getTime();
+              
+              if (!isToday) {
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={goToToday}
+                      className="text-xs"
+                    >
+                      Ver hoje
+                    </Button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </CardHeader>
         <CardContent>
@@ -232,21 +261,20 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                     locale={ptBR}
                     className="rounded-md border"
                   />
-                  {selectedDate && (
-                    <div className="p-3 border-t">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          setSelectedDate(undefined);
-                          setIsCalendarOpen(false);
-                        }}
-                      >
-                        Limpar filtro
-                      </Button>
-                    </div>
-                  )}
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        // Voltar para o dia atual
+                        goToToday();
+                        setIsCalendarOpen(false);
+                      }}
+                    >
+                      Ver dia atual
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
               <div>
@@ -256,21 +284,31 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                 </CardDescription>
               </div>
             </div>
-            {selectedDate && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedDate(undefined)}
-                  className="text-xs"
-                >
-                  Limpar
-                </Button>
-              </div>
-            )}
+            {(() => {
+              const now = new Date();
+              const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+              const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+              const isToday = selectedDate.getTime() === today.getTime();
+              
+              if (!isToday) {
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={goToToday}
+                      className="text-xs"
+                    >
+                      Ver hoje
+                    </Button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </CardHeader>
         <CardContent>
@@ -335,30 +373,54 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
             </div>
             <div className="space-y-3">
               <p className="text-lg font-medium text-foreground">
-                {selectedDate 
-                  ? `Nenhum dado disponível para ${format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}`
-                  : "Nenhum dado de jornada disponível"
-                }
+                {(() => {
+                  const now = new Date();
+                  const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+                  const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+                  const isToday = selectedDate && selectedDate.getTime() === today.getTime();
+                  
+                  if (isToday) {
+                    return "Nenhum dado disponível para hoje";
+                  }
+                  return `Nenhum dado disponível para ${format(selectedDate!, "dd/MM/yyyy", { locale: ptBR })}`;
+                })()}
               </p>
               <p className="text-sm text-muted-foreground max-w-md">
-                {selectedDate 
-                  ? "Não há eventos registrados para esta data. Tente selecionar outra data ou limpar o filtro."
-                  : "Os eventos são registrados quando leads são movidos do pipeline principal \"SDR\" para pipelines individuais \"NOME - SDR\"."
-                }
+                {(() => {
+                  const now = new Date();
+                  const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+                  const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+                  const isToday = selectedDate && selectedDate.getTime() === today.getTime();
+                  
+                  if (isToday) {
+                    return "Os eventos são registrados quando leads são movidos do pipeline principal \"SDR\" para pipelines individuais \"NOME - SDR\". Selecione outra data no calendário para ver dados anteriores.";
+                  }
+                  return "Não há eventos registrados para esta data. Tente selecionar outra data no calendário ou voltar para o dia atual.";
+                })()}
               </p>
               
-              {/* Botão para limpar filtro quando há filtro ativo */}
-              {selectedDate && (
-                <div className="flex items-center justify-center mt-4">
-                  <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={() => setSelectedDate(undefined)}
-                  >
-                    Ver todos os dados
-                  </Button>
-                </div>
-              )}
+              {/* Botão para voltar ao dia atual quando não estiver no dia atual */}
+              {(() => {
+                const now = new Date();
+                const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+                const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+                const isToday = selectedDate && selectedDate.getTime() === today.getTime();
+                
+                if (!isToday) {
+                  return (
+                    <div className="flex items-center justify-center mt-4">
+                      <Button 
+                        variant="default" 
+                        size="sm"
+                        onClick={goToToday}
+                      >
+                        Ver dia atual
+                      </Button>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
           </div>
         </CardContent>
@@ -401,21 +463,22 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                   locale={ptBR}
                   className="rounded-md border"
                 />
-                {selectedDate && (
-                  <div className="p-3 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => {
-                        setSelectedDate(undefined);
-                        setIsCalendarOpen(false);
-                      }}
-                    >
-                      Limpar filtro
-                    </Button>
-                  </div>
-                )}
+                <div className="p-3 border-t">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      // Voltar para o dia atual
+                      const now = new Date();
+                      const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+                      setSelectedDate(new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate()));
+                      setIsCalendarOpen(false);
+                    }}
+                  >
+                    Ver dia atual
+                  </Button>
+                </div>
               </PopoverContent>
             </Popover>
             <div>
@@ -427,21 +490,31 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
               </CardDescription>
             </div>
           </div>
-          {selectedDate && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                Filtrado: {format(selectedDate, "dd/MM/yyyy", { locale: ptBR })}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedDate(undefined)}
-                className="text-xs"
-              >
-                Limpar
-              </Button>
-            </div>
-          )}
+          {(() => {
+            const now = new Date();
+            const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+            const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+            const isToday = selectedDate && selectedDate.getTime() === today.getTime();
+            
+            if (!isToday) {
+              return (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Filtrado: {format(selectedDate!, "dd/MM/yyyy", { locale: ptBR })}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                      onClick={goToToday}
+                    className="text-xs"
+                  >
+                    Ver hoje
+                  </Button>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       </CardHeader>
       <CardContent>
