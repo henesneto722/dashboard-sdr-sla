@@ -31,9 +31,10 @@ const MAX_NOTIFICATIONS = 1000; // Limite de notificações no histórico
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [popupEnabled, setPopupEnabled] = useState(true);
   const previousLeadsRef = useRef<Set<string>>(new Set());
   const previousAttendedLeadsRef = useRef<Set<string>>(new Set());
+  const isPendingLeadsInitializedRef = useRef<boolean>(false); // Flag para ignorar primeira carga de leads pendentes
+  const isAttendedLeadsInitializedRef = useRef<boolean>(false); // Flag para ignorar primeira carga de leads atendidos
 
   // Carregar notificações do localStorage
   useEffect(() => {
@@ -47,11 +48,6 @@ export function useNotifications() {
             timestamp: new Date(n.timestamp),
           }))
         );
-      }
-
-      const popupStored = localStorage.getItem('notifications_popup_enabled');
-      if (popupStored !== null) {
-        setPopupEnabled(JSON.parse(popupStored));
       }
     } catch (error) {
       console.error('Erro ao carregar notificações:', error);
@@ -140,15 +136,6 @@ export function useNotifications() {
   // Contar não lidas
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  // Toggle popup
-  const togglePopup = useCallback(() => {
-    setPopupEnabled((prev) => {
-      const newValue = !prev;
-      localStorage.setItem('notifications_popup_enabled', JSON.stringify(newValue));
-      return newValue;
-    });
-  }, []);
-
   // Detectar novos leads pendentes
   const detectNewPendingLeads = useCallback((leads: any[]) => {
     const currentPendingLeads = new Set(
@@ -157,12 +144,25 @@ export function useNotifications() {
         .map((lead) => lead.lead_id)
     );
 
-    // Encontrar novos leads pendentes
+    // Na primeira carga, apenas inicializar o ref sem criar notificações
+    if (!isPendingLeadsInitializedRef.current) {
+      previousLeadsRef.current = currentPendingLeads;
+      isPendingLeadsInitializedRef.current = true;
+      console.log('🔔 [Notificações] Inicialização: leads pendentes carregados, aguardando novos leads...');
+      return;
+    }
+
+    // Encontrar novos leads pendentes (que não estavam no ref anterior)
     const newPendingLeads = leads.filter(
       (lead) =>
         lead.sla_minutes === null &&
+        lead.lead_id &&
         !previousLeadsRef.current.has(lead.lead_id)
     );
+
+    if (newPendingLeads.length > 0) {
+      console.log(`🔔 [Notificações] ${newPendingLeads.length} novo(s) lead(s) pendente(s) detectado(s)`);
+    }
 
     newPendingLeads.forEach((lead) => {
       const stageName = (lead.stage_name || '').toLowerCase();
@@ -170,6 +170,7 @@ export function useNotifications() {
 
       if (isImportant) {
         // Lead "Tem Perfil" - notificação mais chamativa
+        console.log(`🚨 [Notificações] Lead importante detectado: ${lead.lead_name}`);
         addNotification(
           'lead_has_profile',
           '🚨 Lead Importante Pendente!',
@@ -181,6 +182,7 @@ export function useNotifications() {
         );
       } else {
         // Lead pendente normal
+        console.log(`📋 [Notificações] Lead pendente detectado: ${lead.lead_name}`);
         addNotification(
           'lead_pending',
           'Novo Lead Pendente',
@@ -204,15 +206,29 @@ export function useNotifications() {
         .map((lead) => lead.lead_id)
     );
 
-    // Encontrar novos leads atendidos
+    // Na primeira carga, apenas inicializar o ref sem criar notificações
+    if (!isAttendedLeadsInitializedRef.current) {
+      previousAttendedLeadsRef.current = currentAttendedLeads;
+      isAttendedLeadsInitializedRef.current = true;
+      console.log('✅ [Notificações] Inicialização: leads atendidos carregados, aguardando novos atendimentos...');
+      return;
+    }
+
+    // Encontrar novos leads atendidos (que não estavam no ref anterior)
     const newAttendedLeads = leads.filter(
       (lead) =>
         lead.sla_minutes !== null &&
         lead.attended_at &&
+        lead.lead_id &&
         !previousAttendedLeadsRef.current.has(lead.lead_id)
     );
 
+    if (newAttendedLeads.length > 0) {
+      console.log(`✅ [Notificações] ${newAttendedLeads.length} lead(s) atendido(s) detectado(s)`);
+    }
+
     newAttendedLeads.forEach((lead) => {
+      console.log(`✅ [Notificações] Lead atendido: ${lead.lead_name} por ${lead.sdr_name}`);
       addNotification(
         'lead_attended',
         'Lead Atendido',
@@ -232,14 +248,12 @@ export function useNotifications() {
   return {
     notifications,
     unreadCount,
-    popupEnabled,
     addNotification,
     markAsRead,
     markAllAsRead,
     deleteNotification,
     clearAll,
     filterNotifications,
-    togglePopup,
     detectNewPendingLeads,
     detectAttendedLeads,
   };

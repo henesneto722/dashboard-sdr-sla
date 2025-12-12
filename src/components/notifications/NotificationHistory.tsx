@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Bell, X, CheckCheck, Trash2, Filter, Settings } from 'lucide-react';
+import { Bell, X, CheckCheck, Trash2, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -20,9 +20,6 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { useNotifications, NotificationType, Notification } from '@/hooks/useNotifications';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -47,13 +44,11 @@ export function NotificationHistory() {
   const {
     notifications,
     unreadCount,
-    popupEnabled,
     markAsRead,
     markAllAsRead,
     deleteNotification,
     clearAll,
     filterNotifications,
-    togglePopup,
   } = useNotifications();
 
   const [filter, setFilter] = useState<NotificationType | 'all'>('all');
@@ -122,20 +117,6 @@ export function NotificationHistory() {
                   <SelectItem value="sdr_inactive">SDR Inativo</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Settings className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="popup-toggle" className="text-sm">
-                  Pop-up de notificações
-                </Label>
-              </div>
-              <Switch
-                id="popup-toggle"
-                checked={popupEnabled}
-                onCheckedChange={togglePopup}
-              />
             </div>
 
             <div className="flex gap-2">

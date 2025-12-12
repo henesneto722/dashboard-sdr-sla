@@ -3,7 +3,7 @@
  * Integra com o sistema de notificações
  * 
  * COMPORTAMENTO:
- * - Quando uma nova notificação é criada, ela aparece IMEDIATAMENTE como toast (se popupEnabled = true)
+ * - Quando uma nova notificação é criada, ela aparece IMEDIATAMENTE como toast
  * - E também é adicionada ao histórico automaticamente
  */
 
@@ -12,22 +12,27 @@ import { toast } from 'sonner';
 import { useNotifications } from '@/hooks/useNotifications';
 
 export function NotificationToaster() {
-  const { notifications, popupEnabled, markAsRead } = useNotifications();
+  const { notifications, markAsRead } = useNotifications();
   const displayedNotificationsRef = useRef<Set<string>>(new Set());
   const previousNotificationsLengthRef = useRef<number>(0);
+  const isInitializedRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!popupEnabled) {
-      // Mesmo se popup estiver desativado, atualizar o ref para não perder sincronização
+    // Na primeira carga, apenas inicializar sem exibir toasts
+    if (!isInitializedRef.current && notifications.length > 0) {
       previousNotificationsLengthRef.current = notifications.length;
+      notifications.forEach((n) => displayedNotificationsRef.current.add(n.id));
+      isInitializedRef.current = true;
+      console.log('🔔 [NotificationToaster] Inicializado, aguardando novas notificações...');
       return;
     }
 
     // Detectar novas notificações comparando o tamanho do array
-    // Se o array cresceu, significa que há novas notificações
     const hasNewNotifications = notifications.length > previousNotificationsLengthRef.current;
 
     if (hasNewNotifications) {
+      console.log(`🔔 [NotificationToaster] ${notifications.length - previousNotificationsLengthRef.current} nova(s) notificação(ões) detectada(s)`);
+      
       // Pegar apenas as notificações que ainda não foram exibidas
       const newNotifications = notifications.filter((n) => {
         // Verificar se já foi exibida
@@ -40,10 +45,14 @@ export function NotificationToaster() {
         return timeDiff < 30000 && timeDiff >= 0;
       });
 
+      console.log(`🔔 [NotificationToaster] ${newNotifications.length} notificação(ões) nova(s) para exibir`);
+
       // Exibir cada nova notificação como toast
       newNotifications.forEach((notification) => {
         // Marcar como exibida
         displayedNotificationsRef.current.add(notification.id);
+        
+        console.log(`🔔 [NotificationToaster] Exibindo toast: ${notification.type} - ${notification.title}`);
         
         if (notification.type === 'lead_has_profile') {
           // Notificação mais chamativa para leads "Tem Perfil"
@@ -105,7 +114,7 @@ export function NotificationToaster() {
         displayedNotificationsRef.current.delete(id);
       }
     });
-  }, [notifications, popupEnabled, markAsRead]);
+  }, [notifications, markAsRead]);
 
   return null;
 }

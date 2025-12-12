@@ -155,11 +155,12 @@ const Index = () => {
 
   // Detectar novos leads e leads atendidos quando os dados mudam
   useEffect(() => {
-    if (allLeads.length > 0) {
+    // Só detectar se houver leads e se não estiver carregando (para evitar detecção na primeira carga)
+    if (allLeads.length > 0 && !loading) {
       detectNewPendingLeads(allLeads);
       detectAttendedLeads(allLeads);
     }
-  }, [allLeads, detectNewPendingLeads, detectAttendedLeads]);
+  }, [allLeads, loading, detectNewPendingLeads, detectAttendedLeads]);
 
   // Filtrar leads localmente (caso necessário)
   const filteredLeads = useMemo(() => {
