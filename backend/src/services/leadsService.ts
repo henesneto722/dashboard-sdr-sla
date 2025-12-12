@@ -16,6 +16,8 @@ import {
 import { 
   calculateMinutesDiff, 
   getThirtyDaysAgo, 
+  getTodayStart,
+  getMonthStart,
   periodToDate,
   formatHourRange,
   getSLAStatus 
@@ -212,6 +214,11 @@ export async function getGeneralMetrics(): Promise<GeneralMetrics> {
 /**
  * GET /metrics/ranking - Ranking de SDRs por tempo médio
  * Com cache de 60 segundos
+ * 
+ * REGRA: Contabiliza dados acumulados do Mês Atual (Month-to-Date)
+ * - Início: 1º dia do mês atual às 00:00:00
+ * - Fim: Momento presente (NOW())
+ * - Baseado em attended_at (quando o lead foi atendido)
  */
 export async function getSDRRanking(): Promise<SDRPerformance[]> {
   // Verificar cache
@@ -221,12 +228,13 @@ export async function getSDRRanking(): Promise<SDRPerformance[]> {
     return cached;
   }
 
-  const thirtyDaysAgo = getThirtyDaysAgo();
+  // Usar início do mês atual (Month-to-Date)
+  const monthStart = getMonthStart();
 
   const { data: leads, error } = await supabase
     .from('leads_sla')
     .select('sdr_id, sdr_name, sla_minutes')
-    .gte('entered_at', thirtyDaysAgo)
+    .gte('attended_at', monthStart) // Filtrar por attended_at (mês atual)
     .not('sla_minutes', 'is', null)
     .not('sdr_id', 'is', null);
 
@@ -268,26 +276,34 @@ export async function getSDRRanking(): Promise<SDRPerformance[]> {
 
 /**
  * GET /metrics/timeline - Dados para gráfico de linha do tempo
+ * 
+ * REGRA: Acúmulo Diário (Dia Civil)
+ * - Início: 00:00:00 do dia atual
+ * - Fim: Momento presente, acumulando sem descartar até a virada do dia
+ * - Reset: À meia-noite, os dados zeram
+ * - Baseado em attended_at (quando o lead foi atendido)
  */
 export async function getTimelineData(): Promise<{ date: string; average: number; count: number }[]> {
-  const thirtyDaysAgo = getThirtyDaysAgo();
+  // Usar início do dia atual (Dia Civil)
+  const todayStart = getTodayStart();
 
   const { data: leads, error } = await supabase
     .from('leads_sla')
-    .select('entered_at, sla_minutes')
-    .gte('entered_at', thirtyDaysAgo)
+    .select('attended_at, sla_minutes')
+    .gte('attended_at', todayStart) // Filtrar por attended_at (dia atual)
     .not('sla_minutes', 'is', null)
-    .order('entered_at', { ascending: true });
+    .not('attended_at', 'is', null)
+    .order('attended_at', { ascending: true });
 
   if (error) {
     throw new Error(`Erro ao buscar timeline: ${error.message}`);
   }
 
-  // Agrupar por dia
+  // Agrupar por dia de atendimento
   const dailyMap = new Map<string, { total: number; count: number }>();
 
   leads?.forEach(lead => {
-    const date = new Date(lead.entered_at).toISOString().split('T')[0];
+    const date = new Date(lead.attended_at!).toISOString().split('T')[0];
     const current = dailyMap.get(date) || { total: 0, count: 0 };
     current.total += lead.sla_minutes || 0;
     current.count += 1;
@@ -403,14 +419,22 @@ export async function getDailyAverage(): Promise<DailyAverage[]> {
 
 /**
  * GET /metrics/hourly-performance - Análise de desempenho por horário
+ * 
+ * REGRA: Acúmulo Diário (Dia Civil)
+ * - Início: 00:00:00 do dia atual
+ * - Fim: Momento presente, acumulando sem descartar até a virada do dia
+ * - Reset: À meia-noite, os dados zeram
+ * - As barras de horas passadas (ex: 08h, 09h) devem permanecer estáticas e visíveis até a meia-noite
+ * - Baseado em attended_at (quando o lead foi atendido)
  */
 export async function getHourlyPerformance(): Promise<HourlyPerformance[]> {
-  const thirtyDaysAgo = getThirtyDaysAgo();
+  // Usar início do dia atual (Dia Civil)
+  const todayStart = getTodayStart();
 
   const { data: leads, error } = await supabase
     .from('leads_sla')
     .select('attended_at, sla_minutes')
-    .gte('entered_at', thirtyDaysAgo)
+    .gte('attended_at', todayStart) // Filtrar por attended_at (dia atual)
     .not('attended_at', 'is', null)
     .not('sla_minutes', 'is', null);
 

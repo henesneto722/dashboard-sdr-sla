@@ -38,14 +38,16 @@ export const HourlyPerformance = ({ leads }: HourlyPerformanceProps) => {
   const thresholds = getThresholds();
   
   const hourlyData = useMemo(() => {
-    const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    // Início do dia atual (00:00:00) - Dia Civil
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    // Filter leads from last 30 days that were attended
+    // Filter leads atendidos hoje (Dia Civil)
+    // Acumula desde 00:00:00 até o momento presente
     const recentLeads = leads.filter((lead) => {
       if (!lead.attended_at || lead.sla_minutes === null) return false;
       const attendedDate = new Date(lead.attended_at);
-      return attendedDate >= thirtyDaysAgo && attendedDate <= now;
+      return attendedDate >= todayStart;
     });
 
     // Group by hour
@@ -90,7 +92,7 @@ export const HourlyPerformance = ({ leads }: HourlyPerformanceProps) => {
           <CardTitle>Análise de Desempenho por Horário</CardTitle>
         </div>
         <CardDescription>
-          SLA médio por faixa de horário nos últimos 30 dias
+          SLA médio por faixa de horário no dia atual (acumulado desde 00:00:00)
         </CardDescription>
       </CardHeader>
       <CardContent>

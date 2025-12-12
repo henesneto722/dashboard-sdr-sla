@@ -40,6 +40,17 @@ export function getTodayStart(): string {
 }
 
 /**
+ * Retorna o início do mês atual em formato ISO
+ * @returns Data ISO string (1º dia do mês atual às 00:00:00)
+ */
+export function getMonthStart(): string {
+  const date = new Date();
+  date.setDate(1); // Primeiro dia do mês
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
+
+/**
  * Retorna a data de X dias atrás em formato ISO
  * @param days - Número de dias
  * @returns Data ISO string
