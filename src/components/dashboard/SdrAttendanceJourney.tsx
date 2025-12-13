@@ -330,15 +330,80 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
     return (
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20">
-              <Calendar className="h-5 w-5 text-primary" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="p-2 bg-primary/10 rounded-lg dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30"
+                  >
+                    <Calendar className="h-5 w-5 text-primary" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => {
+                      setSelectedDate(date);
+                      setIsCalendarOpen(false);
+                    }}
+                    disabled={(date) => {
+                      return date > new Date();
+                    }}
+                    locale={ptBR}
+                    className="rounded-md border"
+                  />
+                  <div className="p-3 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        goToToday();
+                        setIsCalendarOpen(false);
+                      }}
+                    >
+                      Ver dia atual
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <div>
+                <CardTitle>Jornada de Atendimento dos SDRs</CardTitle>
+                <CardDescription>
+                  Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
+                </CardDescription>
+              </div>
             </div>
-            Jornada de Atendimento dos SDRs
-          </CardTitle>
-          <CardDescription>
-            Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
-          </CardDescription>
+            {(() => {
+              const now = new Date();
+              const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+              const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
+              const isToday = selectedDate && selectedDate.getTime() === today.getTime();
+              
+              if (!isToday) {
+                return (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">
+                      Filtrado: {format(selectedDate!, "dd/MM/yyyy", { locale: ptBR })}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={goToToday}
+                      className="text-xs"
+                    >
+                      Ver hoje
+                    </Button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+          </div>
         </CardHeader>
         <CardContent>
           {/* Mostrar cards de estatísticas mesmo sem dados, especialmente o calendário */}
