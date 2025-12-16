@@ -23,6 +23,7 @@ import {
   getSLAStatus 
 } from '../utils/dateUtils.js';
 import { cache, CACHE_KEYS, CACHE_TTL } from './cacheService.js';
+import { getMainSDRPipelineId, getStageName, getStagePriority } from './pipedriveService.js';
 
 // ============================================
 // Operações CRUD básicas
@@ -150,6 +151,32 @@ export async function attendLead(
   console.log('🗑️ Cache invalidado após atender lead');
 
   console.log(`✅ Lead ${leadId} atendido com SLA de ${slaMinutes} minutos`);
+  return updatedLead;
+}
+
+/**
+ * Atualiza o status de um lead
+ */
+export async function updateLeadStatus(
+  leadId: string,
+  status: string | null
+): Promise<LeadSLA | null> {
+  const { data: updatedLead, error } = await supabase
+    .from('leads_sla')
+    .update({ status })
+    .eq('lead_id', leadId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Erro ao atualizar status do lead:', error);
+    throw new Error(`Erro ao atualizar status: ${error.message}`);
+  }
+
+  // Invalidar cache
+  cache.invalidate(CACHE_KEYS.GENERAL_METRICS);
+  cache.invalidate(CACHE_KEYS.IMPORTANT_PENDING);
+
   return updatedLead;
 }
 
@@ -577,7 +604,8 @@ export async function getSlowestLeads(limit: number = 20): Promise<LeadSLA[]> {
 }
 
 /**
- * GET /leads/pending - Leads pendentes (sem atendimento)
+ * GET /leads/pending - Leads pendentes (sem atendimento e sem status 'lost')
+ * Com limite e filtro de data (últimos 30 dias)
  */
 export async function getPendingLeads(limit: number = 50): Promise<LeadSLA[]> {
   const thirtyDaysAgo = getThirtyDaysAgo();
@@ -587,6 +615,7 @@ export async function getPendingLeads(limit: number = 50): Promise<LeadSLA[]> {
     .select('*')
     .gte('entered_at', thirtyDaysAgo)
     .is('attended_at', null)
+    .not('status', 'eq', 'lost') // Excluir leads com status 'lost'
     .order('entered_at', { ascending: true })
     .limit(limit);
 
@@ -598,31 +627,187 @@ export async function getPendingLeads(limit: number = 50): Promise<LeadSLA[]> {
 }
 
 /**
- * GET /leads/important-pending - Leads importantes pendentes
- * (Tem perfil ou Perfil menor, sem attended_at, últimos 30 dias)
- * Busca case-insensitive para pegar todas variações
+ * GET /leads/all-pending - TODOS os leads pendentes (sem limite e sem filtro de data)
+ * Exclui apenas leads atendidos e com status 'lost'
+ * IMPORTANTE: Filtra apenas leads que estão no pipeline principal "SDR"
  */
-export async function getImportantPendingLeads(): Promise<{ count: number; leads: LeadSLA[] }> {
-  const thirtyDaysAgo = getThirtyDaysAgo();
-
-  // Buscar todos os leads pendentes e filtrar em memória (case-insensitive)
-  const { data: allPending, error } = await supabase
+export async function getAllPendingLeads(): Promise<{ count: number; leads: LeadSLA[] }> {
+  console.log('🔍 [getAllPendingLeads] Iniciando busca de todos os leads pendentes...');
+  
+  // Obter ID do pipeline principal "SDR"
+  const mainSDRPipelineId = await getMainSDRPipelineId();
+  console.log(`📋 [getAllPendingLeads] Pipeline principal SDR ID: ${mainSDRPipelineId || '(não encontrado)'} (tipo: ${typeof mainSDRPipelineId})`);
+  
+  // Buscar leads não atendidos que estão no pipeline principal "SDR"
+  let query = supabase
     .from('leads_sla')
     .select('*')
-    .gte('entered_at', thirtyDaysAgo)
-    .is('attended_at', null)
-    .order('stage_priority', { ascending: true })
+    .is('attended_at', null); // Não foi atendido
+  
+  // Se encontrou o pipeline principal, filtrar por ele
+  // IMPORTANTE: O pipeline no banco é salvo como string, então comparamos como string
+  if (mainSDRPipelineId) {
+    const pipelineIdStr = mainSDRPipelineId.toString();
+    query = query.eq('pipeline', pipelineIdStr);
+    console.log(`🔍 [getAllPendingLeads] Filtrando por pipeline: "${pipelineIdStr}" (como string)`);
+  } else {
+    console.log(`⚠️ [getAllPendingLeads] Pipeline principal não encontrado, buscando todos os leads pendentes`);
+  }
+  
+  const { data: leads, error } = await query
     .order('entered_at', { ascending: true });
+  
+  console.log(`📊 [getAllPendingLeads] Leads encontrados após filtro de pipeline: ${leads?.length || 0}`);
 
   if (error) {
+    console.error('❌ [getAllPendingLeads] Erro ao buscar leads:', error);
+    throw new Error(`Erro ao buscar todos os leads pendentes: ${error.message}`);
+  }
+
+  console.log(`📊 [getAllPendingLeads] Total de leads não atendidos encontrados: ${leads?.length || 0}`);
+
+  // Filtrar em memória:
+  // 1. Excluir leads com status 'lost' (lost_time não nulo no Pipedrive)
+  // 2. Filtrar apenas leads em stages válidos
+  const validStages = ['tem perfil', 'perfil menor', 'inconclusivo', 'sem perfil'];
+  const validPendingLeads = (leads || []).filter(lead => {
+    // Excluir apenas se status for explicitamente 'lost' (permitir NULL/undefined)
+    // Isso garante compatibilidade com leads antigos que não têm o campo status
+    // Se lost_time não é nulo no Pipedrive, o status será 'lost'
+    if (lead.status && lead.status.toLowerCase() === 'lost') {
+      return false;
+    }
+    
+    // Verificar se está em stage válido
+    const stageName = (lead.stage_name || '').toLowerCase().trim();
+    if (!stageName) {
+      return false; // Sem stage, não é válido
+    }
+    
+    const isValidStage = validStages.some(valid => stageName.includes(valid));
+    
+    return isValidStage;
+  });
+
+  console.log(`✅ [getAllPendingLeads] Leads pendentes válidos: ${validPendingLeads.length}`);
+  console.log(`📋 [getAllPendingLeads] Detalhes:`, validPendingLeads.map(l => ({
+    lead_id: l.lead_id,
+    stage: l.stage_name,
+    status: l.status,
+    attended_at: l.attended_at
+  })));
+
+  return {
+    count: validPendingLeads.length,
+    leads: validPendingLeads,
+  };
+}
+
+/**
+ * GET /leads/important-pending - Leads importantes pendentes
+ * 
+ * LÓGICA CORRIGIDA:
+ * 1. Buscar leads não atendidos (attended_at IS NULL)
+ * 2. Filtrar apenas leads que estão no pipeline principal "SDR" (não em pipelines individuais)
+ * 3. Filtrar: Se stage_name contém "Tem Perfil" OU "Perfil Menor" → CONTA
+ * 4. Isso garante que só conta leads que estão realmente pendentes no Pipedrive
+ */
+export async function getImportantPendingLeads(): Promise<{ count: number; leads: LeadSLA[] }> {
+  console.log('🔍 [getImportantPendingLeads] Iniciando busca de leads importantes pendentes...');
+  
+  // Obter ID do pipeline principal "SDR"
+  const mainSDRPipelineId = await getMainSDRPipelineId();
+  console.log(`📋 [getImportantPendingLeads] Pipeline principal SDR ID: ${mainSDRPipelineId || '(não encontrado)'} (tipo: ${typeof mainSDRPipelineId})`);
+  
+  // Buscar leads não atendidos que estão no pipeline principal "SDR"
+  let query = supabase
+    .from('leads_sla')
+    .select('*')
+    .is('attended_at', null); // Não foi atendido
+  
+  // Se encontrou o pipeline principal, filtrar por ele
+  // IMPORTANTE: O pipeline no banco é salvo como string, então comparamos como string
+  if (mainSDRPipelineId) {
+    const pipelineIdStr = mainSDRPipelineId.toString();
+    query = query.eq('pipeline', pipelineIdStr);
+    console.log(`🔍 [getImportantPendingLeads] Filtrando por pipeline: "${pipelineIdStr}" (como string)`);
+  } else {
+    console.log(`⚠️ [getImportantPendingLeads] Pipeline principal não encontrado, buscando todos os leads pendentes`);
+  }
+  
+  const { data: allPending, error } = await query
+    .order('stage_priority', { ascending: true })
+    .order('entered_at', { ascending: true });
+  
+  console.log(`📊 [getImportantPendingLeads] Leads encontrados após filtro de pipeline: ${allPending?.length || 0}`);
+
+  if (error) {
+    console.error('❌ [getImportantPendingLeads] Erro ao buscar leads:', error);
     throw new Error(`Erro ao buscar leads importantes pendentes: ${error.message}`);
   }
 
-  // Filtrar em memória (case-insensitive) para "Tem Perfil" e "Perfil Menor"
-  const importantLeads = (allPending || []).filter(lead => {
-    const stageName = (lead.stage_name || '').toLowerCase().trim();
-    return stageName.includes('tem perfil') || stageName.includes('perfil menor');
+  console.log(`📊 [getImportantPendingLeads] Total de leads não atendidos no banco: ${allPending?.length || 0}`);
+  
+  // DEBUG: Mostrar todos os stages únicos encontrados
+  const uniqueStages = new Set((allPending || []).map(l => l.stage_name).filter(Boolean));
+  console.log(`📋 [getImportantPendingLeads] Stages únicos encontrados (${uniqueStages.size}):`, Array.from(uniqueStages).sort());
+  
+  // DEBUG: Contar por stage
+  const stageCounts: Record<string, number> = {};
+  (allPending || []).forEach(lead => {
+    const stage = lead.stage_name || '(sem stage)';
+    stageCounts[stage] = (stageCounts[stage] || 0) + 1;
   });
+  console.log(`📊 [getImportantPendingLeads] Contagem por stage:`, stageCounts);
+
+  // LÓGICA ESTRITA: Verificar se o stage é EXATAMENTE "Tem Perfil" ou "Perfil Menor"
+  // E se o lead NÃO está com status "lost" ou lost_time não nulo
+  const importantLeads = (allPending || []).filter(lead => {
+    // 1. Excluir leads com status "lost" (lost_time não nulo no Pipedrive)
+    if (lead.status && lead.status.toLowerCase() === 'lost') {
+      console.log(`🚫 [getImportantPendingLeads] Lead ${lead.lead_id} excluído - Status: "lost"`);
+      return false;
+    }
+    
+    // 2. Verificar stage
+    const stageNameRaw = lead.stage_name || '';
+    const stageName = stageNameRaw.toLowerCase().trim();
+    
+    if (!stageName) {
+      console.log(`⏭️ [getImportantPendingLeads] Lead ${lead.lead_id} ignorado - Sem stage`);
+      return false; // Sem stage, não é válido
+    }
+    
+    // 3. Verificação ESTRITA com comparação EXATA:
+    // Stage deve ser EXATAMENTE "tem perfil" OU "perfil menor"
+    // Usar includes() para capturar variações como "Tem Perfil", "TEM PERFIL", etc.
+    const isTemPerfil = stageName.includes('tem perfil') && !stageName.includes('sem perfil');
+    const isPerfilMenor = stageName.includes('perfil menor');
+    
+    const isImportant = isTemPerfil || isPerfilMenor;
+    
+    if (isImportant) {
+      console.log(`✅ [getImportantPendingLeads] Lead ${lead.lead_id} ("${lead.lead_name}") incluído - Stage: "${lead.stage_name}" (normalizado: "${stageName}"), Status: "${lead.status || '(null)'}"`);
+    } else {
+      // Log apenas os primeiros 20 para debug
+      if (allPending && allPending.indexOf(lead) < 20) {
+        console.log(`⏭️ [getImportantPendingLeads] Lead ${lead.lead_id} ("${lead.lead_name}") ignorado - Stage: "${lead.stage_name}" (normalizado: "${stageName}"), Status: "${lead.status || '(null)'}"`);
+      }
+    }
+    
+    return isImportant;
+  });
+
+  console.log(`\n🎯 [getImportantPendingLeads] RESULTADO FINAL: ${importantLeads.length} leads importantes pendentes`);
+  console.log(`📋 [getImportantPendingLeads] Lista completa:`, importantLeads.map((l, idx) => ({
+    index: idx + 1,
+    lead_id: l.lead_id,
+    lead_name: l.lead_name,
+    stage: l.stage_name,
+    status: l.status || '(null)',
+    attended_at: l.attended_at || '(null)',
+    entered_at: l.entered_at
+  })));
 
   return {
     count: importantLeads.length,
@@ -790,4 +975,281 @@ export async function clearAllLeads(): Promise<number> {
   const count = data?.length || 0;
   console.log(`🗑️ ${count} leads removidos do banco de dados`);
   return count;
+}
+
+/**
+ * Exclui todos os leads importantes pendentes do banco de dados
+ * Leads importantes = stage "Tem Perfil" ou "Perfil Menor" que estão pendentes (não atendidos)
+ */
+export async function deleteImportantPendingLeads(): Promise<number> {
+  console.log('🗑️ [deleteImportantPendingLeads] Iniciando exclusão de leads importantes pendentes...');
+  
+  // Obter ID do pipeline principal "SDR"
+  const mainSDRPipelineId = await getMainSDRPipelineId();
+  console.log(`📋 [deleteImportantPendingLeads] Pipeline principal SDR ID: ${mainSDRPipelineId || '(não encontrado)'}`);
+  
+  // Buscar leads importantes pendentes
+  const importantPending = await getImportantPendingLeads();
+  console.log(`📊 [deleteImportantPendingLeads] Encontrados ${importantPending.leads.length} leads importantes pendentes para excluir`);
+  
+  if (importantPending.leads.length === 0) {
+    console.log('✅ [deleteImportantPendingLeads] Nenhum lead importante pendente para excluir');
+    return 0;
+  }
+  
+  // Extrair lead_ids
+  const leadIds = importantPending.leads.map(l => l.lead_id);
+  console.log(`🗑️ [deleteImportantPendingLeads] Excluindo ${leadIds.length} leads:`, leadIds);
+  
+  // Excluir por lead_id
+  const { data, error } = await supabase
+    .from('leads_sla')
+    .delete()
+    .in('lead_id', leadIds)
+    .select();
+  
+  if (error) {
+    console.error('❌ [deleteImportantPendingLeads] Erro ao excluir leads:', error);
+    throw new Error(`Erro ao excluir leads importantes pendentes: ${error.message}`);
+  }
+  
+  const count = data?.length || 0;
+  console.log(`✅ [deleteImportantPendingLeads] ${count} leads importantes pendentes excluídos do banco de dados`);
+  
+  // Invalidar cache
+  cache.invalidate(CACHE_KEYS.GENERAL_METRICS);
+  cache.invalidate(CACHE_KEYS.IMPORTANT_PENDING);
+  
+  return count;
+}
+
+/**
+ * Sincroniza todos os deals do pipeline principal "SDR" do Pipedrive
+ * Busca todos os deals ativos e atualiza/cria no banco de dados
+ */
+export async function syncPipedriveDeals(): Promise<{ inserted: number; updated: number; errors: number }> {
+  console.log('🔄 [syncPipedriveDeals] Iniciando sincronização com Pipedrive...');
+  
+  const PIPEDRIVE_API_TOKEN = process.env.PIPEDRIVE_API_TOKEN;
+  const PIPEDRIVE_API_URL = 'https://api.pipedrive.com/v1';
+  
+  if (!PIPEDRIVE_API_TOKEN) {
+    throw new Error('PIPEDRIVE_API_TOKEN não configurado');
+  }
+  
+  // Invalidar cache do Pipedrive para forçar recarga
+  const { invalidateCache } = await import('./pipedriveService.js');
+  invalidateCache();
+  
+  // Obter ID do pipeline principal "SDR" (após invalidar cache)
+  let mainSDRPipelineId = await getMainSDRPipelineId();
+  if (!mainSDRPipelineId) {
+    // Tentar buscar diretamente da API se não encontrou no cache
+    console.log('⚠️ [syncPipedriveDeals] Pipeline não encontrado no cache. Buscando diretamente da API...');
+    const pipelinesResponse = await fetch(
+      `${PIPEDRIVE_API_URL}/pipelines?api_token=${PIPEDRIVE_API_TOKEN}`
+    );
+    const pipelinesData: any = await pipelinesResponse.json();
+    
+    if (pipelinesData.success && pipelinesData.data) {
+      // Listar todos os pipelines para debug
+      console.log(`📋 [syncPipedriveDeals] Pipelines disponíveis:`, pipelinesData.data.map((p: any) => ({
+        id: p.id,
+        name: p.name
+      })));
+      
+      // Buscar pipeline principal com lógica mais flexível
+      const mainPipeline = pipelinesData.data.find((p: any) => {
+        const nameLower = p.name.toLowerCase().trim();
+        // Pipeline principal: contém "sdr" mas não contém "-" (não é individual)
+        return (nameLower === 'sdr') || 
+               (nameLower.includes('sdr') && !nameLower.includes('-') && !nameLower.includes('individual'));
+      });
+      
+      if (mainPipeline) {
+        console.log(`✅ [syncPipedriveDeals] Pipeline encontrado diretamente: "${mainPipeline.name}" (ID: ${mainPipeline.id})`);
+        mainSDRPipelineId = mainPipeline.id.toString();
+      } else {
+        // Se não encontrou, listar todos os pipelines SDR encontrados
+        const sdrPipelines = pipelinesData.data.filter((p: any) => {
+          const nameLower = p.name.toLowerCase().trim();
+          return nameLower.includes('sdr');
+        });
+        throw new Error(`Pipeline principal "SDR" não encontrado. Pipelines SDR disponíveis: ${sdrPipelines.map((p: any) => `${p.name} (ID: ${p.id})`).join(', ')}`);
+      }
+    } else {
+      throw new Error('Pipeline principal "SDR" não encontrado e não foi possível buscar da API');
+    }
+  }
+  
+  console.log(`📋 [syncPipedriveDeals] Pipeline principal SDR ID: ${mainSDRPipelineId}`);
+  
+  let inserted = 0;
+  let updated = 0;
+  let errors = 0;
+  
+  // Buscar todos os deals do pipeline principal "SDR"
+  let start = 0;
+  const limit = 100;
+  
+  while (true) {
+    const dealsResponse = await fetch(
+      `${PIPEDRIVE_API_URL}/deals?pipeline_id=${mainSDRPipelineId}&start=${start}&limit=${limit}&status=open&api_token=${PIPEDRIVE_API_TOKEN}`
+    );
+    
+    if (!dealsResponse.ok) {
+      throw new Error(`Erro ao buscar deals do Pipedrive: ${dealsResponse.status}`);
+    }
+    
+    const dealsData: any = await dealsResponse.json();
+    
+    if (!dealsData.success || !dealsData.data || dealsData.data.length === 0) {
+      break;
+    }
+    
+    console.log(`📊 [syncPipedriveDeals] Processando ${dealsData.data.length} deals (start=${start})...`);
+    
+    for (const deal of dealsData.data) {
+      try {
+        const dealId = deal.id?.toString();
+        if (!dealId) {
+          console.log(`⚠️ [syncPipedriveDeals] Deal sem ID. Ignorando.`);
+          continue;
+        }
+        
+        const dealTitle = deal.title || deal.name || `Lead #${dealId}`;
+        const addTime = deal.add_time || deal.created_at || new Date().toISOString();
+        const stageId = deal.stage_id;
+        const dealStatus = deal.status || 'open';
+        const lostTime = deal.lost_time || null; // Tempo em que o deal foi perdido
+        const updateTime = deal.update_time || deal.updated_at || new Date().toISOString();
+        
+        // Se lost_time não é nulo, o deal foi perdido
+        const isLost = lostTime !== null && lostTime !== undefined;
+        const finalStatus = isLost ? 'lost' : dealStatus;
+        
+        // Verificar se stageId existe
+        if (!stageId) {
+          console.log(`⚠️ [syncPipedriveDeals] Deal ${dealId} sem stage_id. Ignorando.`);
+          continue;
+        }
+        
+        // Obter informações do stage
+        let stageName: string;
+        try {
+          stageName = await getStageName(stageId);
+        } catch (error) {
+          console.error(`❌ [syncPipedriveDeals] Erro ao buscar stage ${stageId} para deal ${dealId}:`, error);
+          errors++;
+          continue;
+        }
+        
+        const stagePriority = getStagePriority(stageName);
+        
+        // Verificar se é um stage válido
+        if (!isValidSDRStage(stageName)) {
+          console.log(`⏭️ [syncPipedriveDeals] Deal ${dealId} em stage "${stageName}" não válido. Ignorando.`);
+          continue;
+        }
+        
+        // Verificar se o lead já existe
+        const existing = await findLeadByPipedriveId(dealId);
+        
+        if (existing) {
+          // Atualizar lead existente
+          const updateData: any = {
+            lead_name: dealTitle,
+            stage_name: stageName,
+            stage_priority: stagePriority,
+            status: finalStatus, // Usar finalStatus que considera lost_time
+            updated_at: updateTime,
+          };
+          
+          // Se o deal foi perdido (lost_time não nulo), garantir que não seja contado como pendente
+          if (isLost) {
+            // Não atualizar attended_at, mas o status 'lost' já será suficiente para excluir da contagem
+            console.log(`🚫 [syncPipedriveDeals] Deal ${dealId} marcado como perdido (lost_time: ${lostTime})`);
+          }
+          
+          // Se o lead foi movido para um pipeline individual (atendido), atualizar
+          // Por enquanto, só atualizamos se ainda estiver no pipeline principal
+          if (deal.pipeline_id?.toString() === mainSDRPipelineId) {
+            // Se não foi atendido, garantir que attended_at seja null
+            if (!existing.attended_at) {
+              updateData.attended_at = null;
+            }
+          }
+          
+          const { data: updatedLead, error: updateError } = await supabase
+            .from('leads_sla')
+            .update(updateData)
+            .eq('lead_id', dealId)
+            .select()
+            .single();
+          
+          if (updateError) {
+            console.error(`❌ [syncPipedriveDeals] Erro ao atualizar lead ${dealId}:`, updateError);
+            errors++;
+          } else {
+            updated++;
+            console.log(`✅ [syncPipedriveDeals] Lead ${dealId} atualizado`);
+          }
+        } else {
+          // Criar novo lead
+          const leadData: LeadSLAInsert = {
+            lead_id: dealId,
+            lead_name: dealTitle,
+            entered_at: addTime,
+            source: 'Pipedrive',
+            pipeline: mainSDRPipelineId,
+            stage_name: stageName,
+            stage_priority: stagePriority,
+            status: finalStatus, // Usar finalStatus que considera lost_time
+          };
+          
+          // Se o deal foi perdido, não criar como pendente
+          if (isLost) {
+            console.log(`🚫 [syncPipedriveDeals] Deal ${dealId} não será criado como pendente (lost_time: ${lostTime})`);
+            continue;
+          }
+          
+          const newLead = await createLead(leadData);
+          if (newLead) {
+            inserted++;
+            console.log(`✅ [syncPipedriveDeals] Lead ${dealId} criado`);
+          } else {
+            errors++;
+            console.error(`❌ [syncPipedriveDeals] Erro ao criar lead ${dealId}`);
+          }
+        }
+      } catch (error) {
+        console.error(`❌ [syncPipedriveDeals] Erro ao processar deal ${deal.id}:`, error);
+        errors++;
+      }
+    }
+    
+    if (dealsData.data.length < limit) {
+      break;
+    }
+    
+    start += limit;
+  }
+  
+  console.log(`✅ [syncPipedriveDeals] Sincronização concluída: ${inserted} inseridos, ${updated} atualizados, ${errors} erros`);
+  
+  // Invalidar cache
+  cache.invalidate(CACHE_KEYS.GENERAL_METRICS);
+  cache.invalidate(CACHE_KEYS.IMPORTANT_PENDING);
+  
+  return { inserted, updated, errors };
+}
+
+// Função auxiliar para validar stage (mesma lógica do pipedriveHandler)
+function isValidSDRStage(stageName: string | null): boolean {
+  if (!stageName) return false;
+  const name = stageName.toLowerCase().trim();
+  return name.includes('tem perfil') || 
+         name.includes('perfil menor') || 
+         name.includes('inconclusivo') || 
+         name.includes('sem perfil');
 }

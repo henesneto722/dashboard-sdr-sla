@@ -38,7 +38,7 @@ function isValidSDRStage(stageName: string | null): boolean {
 }
 
 import { Request, Response } from 'express';
-import { createLead, attendLead, findLeadByPipedriveId, updateLeadStage } from '../services/leadsService.js';
+import { createLead, attendLead, findLeadByPipedriveId, updateLeadStage, updateLeadStatus } from '../services/leadsService.js';
 import { createAttendanceEvent } from '../services/sdrAttendanceService.js';
 import { 
   isSDRPipeline,
@@ -75,6 +75,8 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
     const stageId = dealData?.stage_id || payload.stage_id;
     const userId = dealData?.user_id || dealData?.owner_id || payload.user_id;
     const updateTime = dealData?.update_time || dealData?.updated_at || new Date().toISOString();
+    const dealStatus = dealData?.status || payload.status || 'open'; // Status do Pipedrive (lost, open, won)
+    const lostTime = dealData?.lost_time || payload.lost_time || null; // Tempo em que o deal foi perdido
 
     console.log(`📥 Deal: id=${dealId}, title=${dealTitle}, pipeline=${pipelineId}, stage=${stageId}`);
 
@@ -117,6 +119,10 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
     const sdrName = await getSDRNameFromPipelineId(pipelineId);
     const stageName = stageId ? await getStageName(stageId) : 'Desconhecido';
     const stagePriority = getStagePriority(stageName);
+    
+    // Se lost_time não é nulo, o deal foi perdido
+    const isLost = lostTime !== null && lostTime !== undefined;
+    const finalStatus = isLost ? 'lost' : dealStatus;
 
     console.log(`📊 Pipeline: ${isMain ? 'PRINCIPAL (SDR)' : 'INDIVIDUAL (' + sdrName + ')'}`);
     console.log(`👤 SDR: ${sdrName}, Stage: ${stageName} (prioridade: ${stagePriority})`);
@@ -130,14 +136,14 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
       case 'added':
         await handleDealAdded(
           dealId, dealTitle, addTime, pipelineId, sdrName, 
-          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, finalStatus, res
         );
         break;
 
       case 'updated':
         await handleDealUpdated(
           dealId, dealTitle, addTime, pipelineId, sdrName,
-          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, finalStatus, res
         );
         break;
 
@@ -145,7 +151,7 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
         console.log(`Ação ${action} - criando lead por padrão`);
         await handleDealAdded(
           dealId, dealTitle, addTime, pipelineId, sdrName,
-          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, res
+          stageId, stageName, stagePriority, isMain, isIndividual, updateTime, userId, finalStatus, res
         );
     }
   } catch (error) {
@@ -197,6 +203,7 @@ async function handleDealAdded(
   isIndividualPipeline: boolean,
   updateTime: string,
   userId: string | number | undefined,
+  dealStatus: string,
   res: Response
 ): Promise<void> {
   try {
@@ -236,6 +243,7 @@ async function handleDealAdded(
       pipeline: pipelineId.toString(),
       stage_name: stageName,
       stage_priority: stagePriority,
+      status: dealStatus, // Status do Pipedrive (lost, open, won)
     };
 
     // Se está no funil individual (SDR já pegou), marcar como atendido
@@ -308,6 +316,7 @@ async function handleDealUpdated(
   isIndividualPipeline: boolean,
   updateTime: string,
   userId: string | number | undefined,
+  dealStatus: string,
   res: Response
 ): Promise<void> {
   try {
@@ -351,6 +360,7 @@ async function handleDealUpdated(
         pipeline: pipelineId.toString(),
         stage_name: stageName,
         stage_priority: stagePriority,
+        status: dealStatus, // Status do Pipedrive (lost, open, won)
       };
 
       if (isAttended) {
@@ -437,6 +447,12 @@ async function handleDealUpdated(
         lead: updatedLead 
       });
       return;
+    }
+    
+    // Atualizar status do lead (se mudou)
+    if (existingLead.status !== dealStatus) {
+      await updateLeadStatus(dealIdStr, dealStatus);
+      console.log(`🔄 Lead ${dealIdStr} - Status atualizado para: ${dealStatus}`);
     }
     
     // Se está no funil principal e mudou para uma etapa válida, atualizar

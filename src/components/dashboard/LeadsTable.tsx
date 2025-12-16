@@ -23,7 +23,10 @@ interface LeadsTableProps {
 type SortField = "lead_name" | "sdr_name" | "entered_at" | "sla_minutes" | "stage_name";
 
 // Mapeamento de nomes de stages para textos mais amigáveis
-const getDisplayName = (stageName: string | null, isAttended: boolean): string => {
+const getDisplayName = (stageName: string | null, isAttended: boolean, status: string | null): string => {
+  // Se está perdido, mostrar "PERDIDO"
+  if (status === 'lost') return 'PERDIDO';
+  
   // Se foi atendido (está em funil específico), sempre mostrar "Atendido"
   if (isAttended) return 'Atendido';
   
@@ -33,7 +36,12 @@ const getDisplayName = (stageName: string | null, isAttended: boolean): string =
 };
 
 // Helper para cor do perfil
-const getProfileColor = (stageName: string | null, isAttended: boolean): { bg: string; text: string; border: string } => {
+const getProfileColor = (stageName: string | null, isAttended: boolean, status: string | null): { bg: string; text: string; border: string } => {
+  // Se está perdido, sempre preto
+  if (status === 'lost') {
+    return { bg: 'bg-gray-900/10 dark:bg-gray-100/10', text: 'text-gray-900 dark:text-gray-100', border: 'border-gray-900/30 dark:border-gray-100/30' };
+  }
+  
   // Se foi atendido, sempre verde
   if (isAttended) {
     return { bg: 'bg-green-500/10', text: 'text-green-600', border: 'border-green-500/30' };
@@ -224,8 +232,8 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
                     <TableCell>
                       {(() => {
                         const isAttended = lead.attended_at !== null;
-                        const colors = getProfileColor(lead.stage_name, isAttended);
-                        const displayText = getDisplayName(lead.stage_name, isAttended);
+                        const colors = getProfileColor(lead.stage_name, isAttended, lead.status);
+                        const displayText = getDisplayName(lead.stage_name, isAttended, lead.status);
                         
                         return displayText !== '-' ? (
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${colors.bg} ${colors.text} ${colors.border}`}>

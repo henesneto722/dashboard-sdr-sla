@@ -19,6 +19,7 @@ export interface LeadSLA {
   pipeline: string;
   stage_name: string | null;
   stage_priority: number | null;
+  status: string | null; // Status do Pipedrive (ex: 'lost', 'open', 'won')
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +36,7 @@ export interface LeadSLAInsert {
   stage_priority?: number;
   attended_at?: string;
   sla_minutes?: number;
+  status?: string | null; // Status do Pipedrive (ex: 'lost', 'open', 'won')
 }
 
 export interface LeadSLAUpdate {

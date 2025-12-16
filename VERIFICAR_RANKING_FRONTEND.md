@@ -171,3 +171,4 @@ console.log('🔍 DEBUG - Leads filtrados:', filteredLeads);
 console.log('🔍 DEBUG - Performance:', sdrPerformance);
 ```
 
+

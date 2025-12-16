@@ -77,3 +77,4 @@ Write-Host "1. Verifique se os dados retornados correspondem às expectativas" -
 Write-Host "2. Execute os scripts SQL no Supabase para comparar" -ForegroundColor White
 Write-Host "3. Verifique o frontend para visualização" -ForegroundColor White
 
+

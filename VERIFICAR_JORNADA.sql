@@ -47,3 +47,4 @@ WHERE timestamp >= CURRENT_DATE AT TIME ZONE 'America/Sao_Paulo'
 GROUP BY user_id, user_name
 ORDER BY eventos_hoje DESC;
 
+

@@ -341,3 +341,4 @@ http://localhost:3001/api/metrics/daily-average
 
 Agora você pode testar o endpoint de várias formas. O método mais simples é abrir no navegador ou usar o dashboard do frontend que já está integrado!
 
+

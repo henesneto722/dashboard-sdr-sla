@@ -242,3 +242,4 @@ Após validar todos os testes:
 2. Monitorar os logs do backend para garantir que não há erros
 3. Documentar qualquer comportamento inesperado
 
+

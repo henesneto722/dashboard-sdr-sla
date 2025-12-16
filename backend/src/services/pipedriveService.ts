@@ -46,28 +46,44 @@ function isCacheValid(): boolean {
 async function fetchPipelines(): Promise<PipelineInfo[]> {
   if (!PIPEDRIVE_API_TOKEN) {
     console.error('❌ PIPEDRIVE_API_TOKEN não configurado');
+    console.error('   Configure a variável de ambiente PIPEDRIVE_API_TOKEN no arquivo .env');
     return [];
   }
 
   try {
+    console.log(`🔍 [fetchPipelines] Buscando pipelines do Pipedrive...`);
     const response = await fetch(
       `${PIPEDRIVE_API_URL}/pipelines?api_token=${PIPEDRIVE_API_TOKEN}`
     );
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`❌ [fetchPipelines] HTTP error! status: ${response.status}`);
+      console.error(`   Resposta: ${errorText}`);
+      throw new Error(`HTTP error! status: ${response.status}, response: ${errorText}`);
     }
     
     const data = await response.json() as PipedriveApiResponse;
     
-    if (!data.success || !data.data) {
-      console.error('❌ Erro ao buscar pipelines:', data);
+    if (!data.success) {
+      console.error('❌ [fetchPipelines] Erro na resposta da API:', data);
       return [];
     }
+    
+    if (!data.data || data.data.length === 0) {
+      console.warn('⚠️ [fetchPipelines] Nenhum pipeline encontrado na resposta da API');
+      return [];
+    }
+    
+    console.log(`✅ [fetchPipelines] ${data.data.length} pipelines encontrados`);
 
     return data.data.map((p: any) => {
       const nameLower = p.name.toLowerCase().trim();
-      const isMainSDR = nameLower === 'sdr'; // Funil principal "SDR"
+      // Lógica mais flexível: 
+      // - Pipeline principal é aquele que contém "sdr" mas NÃO contém "-" (não é individual)
+      // - Ou é exatamente "sdr"
+      const isMainSDR = (nameLower === 'sdr') || 
+                       (nameLower.includes('sdr') && !nameLower.includes('-') && !nameLower.includes('individual'));
       const isIndividualSDR = nameLower.includes('- sdr') || nameLower.includes('-sdr'); // "NOME - SDR"
       
       return {
@@ -192,6 +208,35 @@ export async function isMainSDRPipeline(pipelineId: string | number): Promise<bo
 }
 
 /**
+ * Obtém o ID do pipeline principal "SDR"
+ */
+export async function getMainSDRPipelineId(): Promise<string | null> {
+  await loadPipedriveData();
+  
+  if (!pipelinesCache) {
+    console.log('⚠️ [getMainSDRPipelineId] Cache de pipelines não disponível');
+    return null;
+  }
+  
+  const allPipelines = Array.from(pipelinesCache.values());
+  console.log(`📋 [getMainSDRPipelineId] Total de pipelines no cache: ${allPipelines.length}`);
+  
+  const sdrPipelines = allPipelines.filter(p => p.isSDR);
+  console.log(`📋 [getMainSDRPipelineId] Pipelines SDR encontrados (${sdrPipelines.length}):`, 
+    sdrPipelines.map(p => ({ id: p.id, name: p.name, isMainSDR: p.isMainSDR })));
+  
+  const mainPipeline = allPipelines.find(p => p.isMainSDR);
+  
+  if (mainPipeline) {
+    console.log(`✅ [getMainSDRPipelineId] Pipeline principal SDR encontrado: "${mainPipeline.name}" (ID: ${mainPipeline.id})`);
+    return mainPipeline.id.toString();
+  } else {
+    console.log(`⚠️ [getMainSDRPipelineId] Pipeline principal SDR NÃO encontrado!`);
+    return null;
+  }
+}
+
+/**
  * Verifica se é um funil individual de SDR "NOME - SDR" (leads atendidos)
  */
 export async function isIndividualSDRPipeline(pipelineId: string | number): Promise<boolean> {
@@ -273,5 +318,16 @@ export async function listSDRPipelines(): Promise<PipelineInfo[]> {
   if (!pipelinesCache) return [];
   
   return Array.from(pipelinesCache.values()).filter(p => p.isSDR);
+}
+
+/**
+ * Lista TODOS os pipelines (para debug)
+ */
+export async function listAllPipelines(): Promise<PipelineInfo[]> {
+  await loadPipedriveData();
+  
+  if (!pipelinesCache) return [];
+  
+  return Array.from(pipelinesCache.values());
 }
 

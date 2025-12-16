@@ -1,6 +1,6 @@
 # 📋 PRD (Product Requirements Document) - Lead Speed Monitor
 
-**Versão:** 1.1.0  
+**Versão:** 1.3.0  
 **Data:** 2024  
 **Status:** ✅ Em Produção  
 **Última Atualização:** Dezembro 2024
@@ -314,15 +314,21 @@ SLA (minutos) = Tempo entre entrada no pipeline "SDR" e movimentação para pipe
 
 1. **StatsCards (Cards de Métricas)**
    - Total de Leads (últimos 30 dias)
-   - Leads Atendidos
-   - Leads Pendentes
+   - Leads Atendidos Hoje (filtra por `attended_at` do dia atual)
+   - Leads Pendentes (TODOS os leads pendentes, sem filtro de data)
    - SLA Médio (minutos)
-   - Leads Importantes Pendentes (clique para filtrar)
+   - Leads Importantes Pendentes (apenas "Tem Perfil" e "Perfil Menor" pendentes) - clicável para filtrar
+   - Melhor SDR (usa ranking mensal com score combinado: tempo médio + quantidade de leads)
 
 2. **SDRRanking (Ranking de SDRs)**
-   - Lista de SDRs ordenada por menor SLA médio
-   - Exibe: Nome, SLA médio, quantidade de leads atendidos
+   - Lista de SDRs ordenada por score combinado de performance
+   - Filtros temporais: Diário, Semanal, Mensal (via Tabs)
+   - Score combinado: 40% tempo médio + 60% quantidade de leads atendidos
+   - Exibe: Nome, SLA médio, quantidade de leads atendidos, score de performance
    - Badges de status (Bom/Moderado/Crítico)
+   - Usa mesma métrica do card "Atendidos Hoje" (filtra por `attended_at`)
+   - Otimizado: busca todos os leads do mês uma vez e filtra client-side
+   - Callback para passar ranking mensal ao componente StatsCards
 
 3. **AverageTimeChart (Tempo Médio por Dia - Últimos 7 dias)**
    - Gráfico de barras mostrando evolução do SLA médio
@@ -346,6 +352,11 @@ SLA (minutos) = Tempo entre entrada no pipeline "SDR" e movimentação para pipe
    - Visualização temporal de leads
    - Agrupamento por data
    - Indicadores de volume e SLA médio
+   - Badges coloridos indicando perfil do lead:
+     - 🔴 "Tem Perfil" (vermelho)
+     - 🟡 "Perfil Menor" (amarelo)
+     - ⚪ "Inconclusivo" (outline)
+     - ⚪ "Sem Perfil" (outline)
 
 7. **LeadsTable (Tabela de Leads)**
    - Lista completa de leads
@@ -359,6 +370,23 @@ SLA (minutos) = Tempo entre entrada no pipeline "SDR" e movimentação para pipe
    - Filtro por SDR: Dropdown com lista de SDRs
    - Botão para limpar filtros
 
+9. **SdrAttendanceJourney (Jornada de Atendimento dos SDRs)**
+   - Monitora jornada de trabalho dos SDRs baseado em movimentação de leads
+   - Divide o dia em turnos: Manhã (06h-12h) e Tarde (13h-18h) - Horário de São Paulo
+   - Cards de estatísticas: SDRs Ativos, Total de Ações, Dias Registrados
+   - Tabela detalhada: SDR, Data, Primeira/Última ação por turno, Quantidade de ações, Duração
+   - Seletor de data: Calendário sempre acessível (mesmo em estados vazios)
+   - Filtro por SDR específico (quando aplicável)
+   - Estados: Loading, Erro, Sem dados, Com dados
+   - Atualização automática a cada 60 segundos
+
+10. **NotificationHistory (Histórico de Notificações)**
+    - Popover com lista completa de notificações
+    - Filtros por tipo (pendente, atendido, importante, SDR ativo/inativo)
+    - Ações: marcar como lida, marcar todas, deletar, limpar todas
+    - Contador de não lidas
+    - Persistência no localStorage
+
 ### 7.2 Funcionalidades de Tempo Real
 
 **Supabase Realtime:**
@@ -371,10 +399,23 @@ SLA (minutos) = Tempo entre entrada no pipeline "SDR" e movimentação para pipe
 - Ativado quando Realtime não está disponível
 - Indicador visual do modo de atualização
 
-**Notificações:**
-- 🔔 Novo lead importante recebido
-- ✅ Lead atendido
-- 🔴 Conectado em tempo real
+**Sistema de Notificações Completo:**
+
+**Notificações Toast (Sempre Ativas):**
+- 🔔 Novo lead pendente recebido (notificação padrão)
+- 🚨 Novo lead importante ("Tem Perfil" ou "Perfil Menor") recebido (notificação destacada em vermelho)
+- ✅ Lead atendido (notificação de sucesso)
+- Exibidas no canto superior direito usando Sonner
+- Persistência: notificações salvas no localStorage
+- Prevenção de duplicatas: não mostra notificações antigas no carregamento inicial
+
+**Histórico de Notificações:**
+- Acessível via ícone de sino ao lado do toggle de tema
+- Exibe todas as notificações: pendentes, atendidos, importantes, SDR ativo/inativo
+- Filtros por tipo de notificação
+- Ações: marcar como lida, marcar todas como lidas, deletar, limpar todas
+- Contador de não lidas exibido no badge
+- Persistência completa no localStorage
 
 ### 7.3 Tema Claro/Escuro
 
@@ -387,6 +428,35 @@ SLA (minutos) = Tempo entre entrada no pipeline "SDR" e movimentação para pipe
 - Botão para forçar atualização dos dados
 - Útil quando Realtime não está funcionando
 - Feedback visual ao atualizar
+
+### 7.5 Sistema de Notificações
+
+**Componentes:**
+- `NotificationToaster`: Exibe toasts no canto superior direito
+- `NotificationHistory`: Histórico completo de notificações
+- `useNotifications`: Hook para gerenciar estado de notificações
+
+**Tipos de Notificações:**
+- `lead_pending`: Novo lead pendente recebido
+- `lead_attended`: Lead foi atendido
+- `lead_has_profile`: Lead importante ("Tem Perfil" ou "Perfil Menor") recebido
+- `sdr_active`: SDR ficou ativo
+- `sdr_inactive`: SDR ficou inativo
+
+**Funcionalidades:**
+- Toasts sempre ativos (não podem ser desabilitados)
+- Detecção automática de novos leads pendentes e atendidos
+- Prevenção de notificações duplicadas no carregamento inicial
+- Persistência completa no localStorage
+- Histórico com filtros por tipo
+- Ações: marcar como lida, marcar todas, deletar, limpar todas
+- Contador de não lidas exibido no badge
+
+**Lógica de Detecção:**
+- Compara leads atuais com leads anteriores (usando refs)
+- Só notifica quando há novos leads (não no carregamento inicial)
+- Flags de inicialização (`isPendingLeadsInitializedRef`, `isAttendedLeadsInitializedRef`)
+- Logs de debug para rastreamento
 
 ---
 
@@ -541,6 +611,7 @@ interface SDRPerformance {
   sdr_name: string;
   average_time: number;
   leads_attended: number;
+  performance_score?: number; // Score combinado (40% tempo + 60% leads)
 }
 ```
 
@@ -729,15 +800,40 @@ interface DailyAverage {
 }
 ```
 
+**GET /api/leads/today-pending**
+- **Descrição:** Retorna TODOS os leads pendentes (sem filtro de data, exclui status 'lost')
+- **Resposta:**
+```json
+{
+  "success": true,
+  "data": {
+    "count": 25,
+    "leads": [/* array de LeadSLA pendentes */]
+  },
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
+**GET /api/leads/all-month**
+- **Descrição:** Retorna todos os leads do mês atual (do dia 1 até hoje)
+- **Resposta:**
+```json
+{
+  "success": true,
+  "data": [/* array de LeadSLA do mês */],
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
 **GET /api/leads/important-pending**
-- **Descrição:** Retorna leads importantes pendentes (TEM PERFIL ou PERFIL MENOR)
+- **Descrição:** Retorna leads importantes pendentes (TEM PERFIL ou PERFIL MENOR) do pipeline SDR principal, excluindo status 'lost'
 - **Resposta:**
 ```json
 {
   "success": true,
   "data": {
     "count": 5,
-    "leads": [/* array de LeadSLA */]
+    "leads": [/* array de LeadSLA pendentes importantes */]
   },
   "message": "5 leads importantes aguardando atendimento",
   "timestamp": "2024-01-01T00:00:00.000Z"
@@ -1786,6 +1882,42 @@ https://dashboard-sdr-sla.onrender.com/health
 
 ## 22. Changelog
 
+### Versão 1.3.0 (Dezembro 2024)
+
+**Novas Funcionalidades:**
+- ✅ Sistema completo de notificações com toasts e histórico
+- ✅ Ranking de SDRs com filtros temporais (Diário, Semanal, Mensal)
+- ✅ Score combinado de performance (40% tempo médio + 60% quantidade de leads)
+- ✅ Badges de perfil na Timeline (Tem Perfil, Perfil Menor, Inconclusivo, Sem Perfil)
+- ✅ Card "Melhor SDR" usando ranking mensal com score combinado
+- ✅ Jornada de Atendimento dos SDRs com turnos (Manhã/Tarde)
+- ✅ Histórico de notificações com filtros e ações (marcar como lida, deletar, limpar)
+- ✅ Endpoint `GET /api/leads/today-pending` para leads pendentes do dia
+- ✅ Endpoint `GET /api/leads/all-month` para buscar todos os leads do mês
+- ✅ Otimização: busca única de leads do mês e filtragem client-side
+
+**Melhorias:**
+- ✅ Ranking de SDRs usa mesma métrica do card "Atendidos Hoje" (filtra por `attended_at`)
+- ✅ Card "Leads Pendentes" mostra TODOS os leads pendentes (sem filtro de data)
+- ✅ Card "Leads Importantes" mostra apenas leads pendentes com "Tem Perfil" ou "Perfil Menor"
+- ✅ Filtro de leads importantes na tabela mostra apenas leads pendentes importantes
+- ✅ Calendário na Jornada de Atendimento sempre acessível (mesmo em estados vazios)
+- ✅ Prevenção de notificações duplicadas no carregamento inicial
+- ✅ Persistência completa de notificações no localStorage
+
+**Correções:**
+- ✅ Consistência entre cards de métricas e tabela de leads
+- ✅ Ranking mensal passado corretamente para o card "Melhor SDR"
+- ✅ Filtros temporais do ranking alinhados com métricas de atendimento
+- ✅ Agrupamento correto de SDRs usando `user_name` na chave
+
+### Versão 1.2.1 (Dezembro 2024)
+
+**Correções:**
+- ✅ Correção de agrupamento de SDRs usando `user_name` na chave de agrupamento
+- ✅ Separação correta de SDRs com mesmo `user_id` mas nomes diferentes
+- ✅ Cada SDR agora aparece em sua própria linha, mesmo compartilhando o mesmo ID
+
 ### Versão 1.1.0 (Dezembro 2024)
 
 **Novas Funcionalidades:**
@@ -2762,11 +2894,14 @@ Documentação sobre como testar o endpoint da API.
 Este documento contém TODAS as informações do projeto Lead Speed Monitor, incluindo todas as funcionalidades implementadas até Dezembro 2024.
 
 **Última atualização:** Dezembro 2024  
-**Versão do documento:** 1.2.1  
-**Status:** ✅ Completo e Atualizado com TODAS as funcionalidades, incluindo Jornada de Atendimento dos SDRs
+**Versão do documento:** 1.3.0  
+**Status:** ✅ Completo e Atualizado com TODAS as funcionalidades
 
-**Correções Recentes (v1.2.1):**
-- ✅ Correção de agrupamento de SDRs usando `user_name` na chave de agrupamento
-- ✅ Separação correta de SDRs com mesmo `user_id` mas nomes diferentes
-- ✅ Cada SDR agora aparece em sua própria linha, mesmo compartilhando o mesmo ID
+**Funcionalidades Principais (v1.3.0):**
+- ✅ Sistema completo de notificações (toasts + histórico)
+- ✅ Ranking de SDRs com filtros temporais e score combinado
+- ✅ Jornada de Atendimento dos SDRs com turnos
+- ✅ Timeline com badges de perfil
+- ✅ Card "Melhor SDR" usando ranking mensal
+- ✅ Correções nos cards de Leads Pendentes e Importantes
 

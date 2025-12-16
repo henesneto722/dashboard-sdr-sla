@@ -254,3 +254,4 @@ console.log(JSON.stringify(result, null, 2));
 - A conversão de timezone é feita apenas para classificação e agrupamento
 - Eventos com `user_id` ou `timestamp` inválidos são ignorados com um warning
 
+

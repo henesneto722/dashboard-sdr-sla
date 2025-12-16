@@ -15,6 +15,7 @@ export interface Lead {
   pipeline: string;
   stage_name: string | null;
   stage_priority: number | null;
+  status: string | null; // Status do Pipedrive (ex: 'lost', 'open', 'won')
 }
 
 export interface SDRPerformance {

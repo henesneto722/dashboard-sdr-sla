@@ -461,3 +461,4 @@ O resultado deve corresponder ao valor do card "Atendidos Hoje" no dashboard!
 
 Use estes testes para validar se a funcionalidade está funcionando corretamente. Se encontrar algum problema, os logs de diagnóstico ajudarão a identificar a causa.
 
+

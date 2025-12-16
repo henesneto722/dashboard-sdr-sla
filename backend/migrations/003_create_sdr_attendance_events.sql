@@ -62,3 +62,4 @@ COMMENT ON COLUMN sdr_attendance_events.timestamp IS 'Timestamp da ação em UTC
 COMMENT ON COLUMN sdr_attendance_events.deal_id IS 'ID do deal/lead que foi movimentado';
 COMMENT ON COLUMN sdr_attendance_events.event_type IS 'Tipo de evento (stage_change, updated, attended, etc)';
 
+

@@ -166,3 +166,4 @@ SELECT
   EXTRACT(DAY FROM NOW()) as dia_atual,
   EXTRACT(MONTH FROM NOW()) as mes_atual;
 
+

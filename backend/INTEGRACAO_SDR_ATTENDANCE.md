@@ -207,3 +207,4 @@ SELECT COUNT(*) FROM sdr_attendance_events;
 - `backend/src/webhooks/pipedriveHandler.ts` - Integração com webhooks
 - `backend/migrations/003_create_sdr_attendance_events.sql` - Migração do banco
 
+

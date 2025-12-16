@@ -55,3 +55,4 @@ WHERE
   AND sla_minutes IS NOT NULL
 ORDER BY attended_at DESC;
 
+

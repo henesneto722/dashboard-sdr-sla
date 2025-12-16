@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Clock, TrendingUp, AlertCircle, Users, Award, AlertTriangle } from "lucide-react";
 import { Lead, SDRPerformance, formatTime } from "@/lib/mockData";
 import { useQuery } from "@tanstack/react-query";
-import { fetchTodayAttendedLeads } from "@/lib/api";
+import { fetchTodayAttendedLeads, fetchAllPendingLeads } from "@/lib/api";
 
 interface StatsCardsProps {
   leads: Lead[];
@@ -28,8 +28,16 @@ export const StatsCards = ({
     refetchInterval: 60000, // Atualiza a cada 60 segundos
   });
 
+  // Buscar TODOS os leads pendentes do backend (sem filtro de período)
+  const { data: allPendingData } = useQuery({
+    queryKey: ['all-pending-leads'],
+    queryFn: fetchAllPendingLeads,
+    refetchInterval: 60000, // Atualiza a cada 60 segundos
+  });
+
   const attendedLeads = leads.filter(l => l.sla_minutes !== null);
-  const pendingLeads = leads.filter(l => l.sla_minutes === null);
+  // Usar contagem do backend (já exclui atendidos e status 'lost')
+  const pendingCount = allPendingData?.count || 0;
   
   const averageTime = attendedLeads.length > 0
     ? Math.round(attendedLeads.reduce((sum, l) => sum + (l.sla_minutes || 0), 0) / attendedLeads.length)
@@ -76,7 +84,7 @@ export const StatsCards = ({
     },
     {
       title: "Leads Pendentes",
-      value: pendingLeads.length.toString(),
+      value: pendingCount.toString(),
       icon: Users,
       color: "text-slate-400",
       bgColor: "bg-slate-500/15",
