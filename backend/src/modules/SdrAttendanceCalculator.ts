@@ -191,11 +191,15 @@ export function calculateSdrAttendance(
   // Map para agrupar por SDR e Data
   // Chave: "sdr_id|date" (ex: "123|2024-01-15")
   const metricsMap = new Map<string, SdrDailyMetrics>();
+  
+  // Map para rastrear leads únicos por SDR e Data
+  // Chave: "sdr_id|date", Valor: Set de deal_id únicos
+  const uniqueLeadsMap = new Map<string, Set<string>>();
 
   // Processar cada evento
   for (const event of events) {
     // Validar evento
-    if (!event.user_id || !event.timestamp) {
+    if (!event.user_id || !event.timestamp || !event.deal_id) {
       console.warn('⚠️ Evento inválido ignorado:', event);
       continue;
     }
@@ -203,6 +207,7 @@ export function calculateSdrAttendance(
     // IMPORTANTE: Converter user_id para string e garantir consistência
     const sdrId = String(event.user_id).trim();
     const sdrName = event.user_name ? String(event.user_name).trim().toUpperCase() : undefined;
+    const dealId = String(event.deal_id).trim();
     
     // Extrair data e hora em timezone de São Paulo
     const date = extractDateInSaoPaulo(event.timestamp);
@@ -236,6 +241,7 @@ export function calculateSdrAttendance(
         total_actions: 0,
       };
       metricsMap.set(key, metrics);
+      uniqueLeadsMap.set(key, new Set<string>());
       console.log(`🆕 Nova métrica criada: SDR ${sdrName || sdrId} (ID: ${sdrId}) em ${date} - Chave: ${key}`);
     } else {
       // Atualizar nome se não estava definido e agora temos
@@ -249,6 +255,16 @@ export function calculateSdrAttendance(
       }
     }
 
+    // Obter Set de leads únicos para este SDR nesta data
+    let uniqueLeads = uniqueLeadsMap.get(key);
+    if (!uniqueLeads) {
+      uniqueLeads = new Set<string>();
+      uniqueLeadsMap.set(key, uniqueLeads);
+    }
+
+    // Verificar se este deal_id já foi contabilizado
+    const isNewLead = !uniqueLeads.has(dealId);
+    
     // Classificar evento por turno
     if (isMorningShift(hour)) {
       // Turno da Manhã
@@ -273,7 +289,12 @@ export function calculateSdrAttendance(
           metrics.morning.last_action = event.timestamp;
         }
       }
-      metrics.morning.action_count++;
+      
+      // Contar apenas leads únicos no turno
+      if (isNewLead) {
+        metrics.morning.action_count++;
+        uniqueLeads.add(dealId);
+      }
     } else if (isAfternoonShift(hour)) {
       // Turno da Tarde
       if (!metrics.afternoon.first_action) {
@@ -297,11 +318,20 @@ export function calculateSdrAttendance(
           metrics.afternoon.last_action = event.timestamp;
         }
       }
-      metrics.afternoon.action_count++;
+      
+      // Contar apenas leads únicos no turno
+      if (isNewLead) {
+        metrics.afternoon.action_count++;
+        uniqueLeads.add(dealId);
+      }
     }
     // Se não está em nenhum turno (fora de 06-12h e 13-18h), não contabiliza
     
-    metrics.total_actions++;
+    // Contar apenas leads únicos no total_actions
+    if (isNewLead) {
+      metrics.total_actions++;
+      uniqueLeads.add(dealId);
+    }
   }
 
   // Converter Map para Array e ordenar por data e SDR
@@ -321,7 +351,7 @@ export function calculateSdrAttendance(
     const sdrKey = m.sdr_name || m.sdr_id;
     const count = metricsBySdr.get(sdrKey) || 0;
     metricsBySdr.set(sdrKey, count + 1);
-    console.log(`   ✅ ${m.sdr_name || m.sdr_id} (ID: ${m.sdr_id}) em ${m.date}: ${m.total_actions} ações`);
+    console.log(`   ✅ ${m.sdr_name || m.sdr_id} (ID: ${m.sdr_id}) em ${m.date}: ${m.total_actions} leads únicos atendidos`);
   });
   console.log(`📊 Resumo: ${metricsBySdr.size} SDRs únicos encontrados (agrupados por nome)`);
   if (metricsBySdr.size > 1) {
