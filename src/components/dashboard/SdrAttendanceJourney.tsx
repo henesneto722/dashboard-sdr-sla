@@ -1,5 +1,5 @@
 /**
- * Componente para exibir a Jornada de Atendimento dos SDRs
+ * Componente para exibir a Jornada de Atendimentos
  * Mostra métricas de turnos (manhã e tarde) por SDR e data
  */
 
@@ -188,7 +188,7 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                 </PopoverContent>
               </Popover>
               <div>
-                <CardTitle>Jornada de Atendimento dos SDRs</CardTitle>
+                <CardTitle>Jornada de Atendimentos</CardTitle>
                 <CardDescription>
                   Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
                 </CardDescription>
@@ -278,7 +278,7 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                 </PopoverContent>
               </Popover>
               <div>
-                <CardTitle>Jornada de Atendimento dos SDRs</CardTitle>
+                <CardTitle>Jornada de Atendimentos</CardTitle>
                 <CardDescription>
                   Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
                 </CardDescription>
@@ -372,7 +372,7 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                 </PopoverContent>
               </Popover>
               <div>
-                <CardTitle>Jornada de Atendimento dos SDRs</CardTitle>
+                <CardTitle>Jornada de Atendimentos</CardTitle>
                 <CardDescription>
                   Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo
                 </CardDescription>
@@ -548,7 +548,7 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
             </Popover>
             <div>
               <CardTitle className="flex items-center gap-3">
-                Jornada de Atendimento dos SDRs
+                Jornada de Atendimentos
               </CardTitle>
               <CardDescription>
                 Métricas de turnos (Manhã: 06h-12h | Tarde: 13h-18h) - Horário de São Paulo

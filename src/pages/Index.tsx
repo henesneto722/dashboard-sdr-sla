@@ -173,7 +173,7 @@ const Index = () => {
                 <Activity className="h-8 w-8 text-primary" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-foreground dark:gradient-text">Dashboard SDR</h1>
+                <h1 className="text-3xl font-bold text-foreground dark:gradient-text">Dashboard SLA</h1>
                 <p className="text-muted-foreground">Monitoramento de Tempo de Atendimento</p>
               </div>
             </div>
@@ -268,8 +268,6 @@ const Index = () => {
                 <StatsCards 
                   leads={filteredLeads} 
                   sdrPerformance={sdrPerformance}
-                  monthlyRanking={monthlyRanking}
-                  isFilteredBySDR={selectedSDR !== "all"} 
                 />
                 
                 <SDRRanking onMonthlyRankingChange={setMonthlyRanking} />

@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, TrendingUp, AlertCircle, Users, Award } from "lucide-react";
+import { Clock, TrendingUp, AlertCircle, Users } from "lucide-react";
 import { Lead, SDRPerformance, formatTime } from "@/lib/mockData";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTodayAttendedLeads, fetchAllPendingLeads } from "@/lib/api";
@@ -7,15 +7,11 @@ import { fetchTodayAttendedLeads, fetchAllPendingLeads } from "@/lib/api";
 interface StatsCardsProps {
   leads: Lead[];
   sdrPerformance: SDRPerformance[];
-  monthlyRanking?: SDRPerformance[]; // Ranking mensal para o card "Melhor SDR"
-  isFilteredBySDR?: boolean; // true quando um SDR específico está selecionado
 }
 
 export const StatsCards = ({ 
   leads, 
-  sdrPerformance,
-  monthlyRanking = [], // Ranking mensal (usado para "Melhor SDR")
-  isFilteredBySDR = false
+  sdrPerformance
 }: StatsCardsProps) => {
   // Buscar leads atendidos hoje diretamente do backend (independente do filtro de período)
   const { data: todayAttendedLeads = [] } = useQuery({
@@ -88,28 +84,10 @@ export const StatsCards = ({
     },
   ];
 
-  // Card "Melhor SDR" só aparece quando NÃO está filtrado por SDR individual
-  // IMPORTANTE: Usa o ranking mensal (monthlyRanking) para determinar o melhor SDR
-  // O ranking mensal já considera tempo médio + quantidade de leads
-  const bestSDR = monthlyRanking.length > 0 ? monthlyRanking[0] : null;
-  
-  const stats = isFilteredBySDR ? baseStats : [
-    ...baseStats,
-    {
-      title: "Melhor SDR",
-      value: bestSDR?.sdr_name.split(" ")[0] || "N/A",
-      icon: Award,
-      color: "text-emerald-500",
-      bgColor: "bg-emerald-500/15",
-      iconColor: "text-emerald-500",
-      subtitle: bestSDR 
-        ? `${bestSDR.leads_attended} leads • ${formatTime(bestSDR.average_time)}`
-        : "",
-    },
-  ];
+  const stats = baseStats;
 
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 ${isFilteredBySDR ? 'lg:grid-cols-4' : 'lg:grid-cols-5'}`}>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 lg:grid-cols-4">
       {stats.map((stat, index) => (
         <Card 
           key={index} 

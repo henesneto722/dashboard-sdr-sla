@@ -159,7 +159,7 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                     onClick={() => handleSort("sdr_name")}
                     className="font-semibold"
                   >
-                    SDR
+                    Closer
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
@@ -182,7 +182,7 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                     onClick={() => handleSort("stage_name")}
                     className="font-semibold"
                   >
-                    Perfil
+                    Etapa
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
@@ -193,7 +193,7 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                     onClick={() => handleSort("sla_minutes")}
                     className="font-semibold"
                   >
-                    Tempo (min)
+                    Tempo
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
