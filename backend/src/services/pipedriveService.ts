@@ -344,17 +344,6 @@ export async function listCloserPipelines(): Promise<PipelineInfo[]> {
 }
 
 /**
- * Lista todos os pipelines CLOSER (individuais)
- */
-export async function listCloserPipelines(): Promise<PipelineInfo[]> {
-  await loadPipedriveData();
-  
-  if (!pipelinesCache) return [];
-  
-  return Array.from(pipelinesCache.values()).filter(p => p.isIndividualCloser);
-}
-
-/**
  * Lista TODOS os pipelines (para debug)
  */
 export async function listAllPipelines(): Promise<PipelineInfo[]> {

@@ -389,7 +389,7 @@ router.get('/debug/pipelines', async (req: Request, res: Response) => {
           name: p.name,
           isSDR: p.isSDR,
           isMainSDR: p.isMainSDR,
-          isIndividualSDR: p.isIndividualSDR
+          isIndividualCloser: p.isIndividualCloser
         })),
         mainPipelineId,
         mainPipeline: mainPipelineId ? pipelines.find(p => p.id.toString() === mainPipelineId) : null
