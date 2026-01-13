@@ -17,7 +17,6 @@ const ITEMS_PER_PAGE = 20;
 
 interface LeadsTableProps {
   leads: Lead[];
-  filterByImportant?: boolean; // filtra apenas leads importantes
 }
 
 type SortField = "lead_name" | "sdr_name" | "entered_at" | "sla_minutes" | "stage_name";
@@ -49,31 +48,34 @@ const getProfileColor = (stageName: string | null, isAttended: boolean, status: 
   
   const stage = (stageName || '').toLowerCase();
   
-  if (stage.includes('tem perfil') || stage === 'tem perfil') {
+  if (stage.includes('lead formulário') || stage.includes('lead formularío')) {
     return { bg: 'bg-red-500/10', text: 'text-red-600', border: 'border-red-500/30' };
   }
-  if (stage.includes('perfil menor') || stage === 'perfil menor') {
+  if (stage.includes('lead chatbox')) {
     return { bg: 'bg-orange-500/10', text: 'text-orange-600', border: 'border-orange-500/30' };
   }
-  if (stage.includes('inconclusivo') || stage === 'inconclusivo') {
-    return { bg: 'bg-slate-500/10', text: 'text-slate-500', border: 'border-slate-500/30' };
+  if (stage.includes('lead instagram')) {
+    return { bg: 'bg-blue-500/10', text: 'text-blue-600', border: 'border-blue-500/30' };
   }
-  if (stage.includes('sem perfil') || stage === 'sem perfil') {
-    return { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' };
+  if (stage.includes('áurea final') || stage.includes('aurea final')) {
+    return { bg: 'bg-purple-500/10', text: 'text-purple-600', border: 'border-purple-500/30' };
+  }
+  if (stage.includes('fabio final')) {
+    return { bg: 'bg-indigo-500/10', text: 'text-indigo-600', border: 'border-indigo-500/30' };
   }
   // Default para pendentes
-  return { bg: 'bg-blue-500/10', text: 'text-blue-500', border: 'border-blue-500/30' };
+  return { bg: 'bg-gray-500/10', text: 'text-gray-400', border: 'border-gray-500/20' };
 };
 
-export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps) => {
+export const LeadsTable = ({ leads }: LeadsTableProps) => {
   const [sortField, setSortField] = useState<SortField>("entered_at");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Reset para página 1 quando os leads mudam ou filtro muda
+  // Reset para página 1 quando os leads mudam
   useEffect(() => {
     setCurrentPage(1);
-  }, [leads.length, filterByImportant]);
+  }, [leads.length]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -95,13 +97,7 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
     }
   };
 
-  // Filtrar leads importantes se necessário
-  const filteredLeads = filterByImportant 
-    ? leads.filter(lead => {
-        const stage = (lead.stage_name || '').toLowerCase();
-        return stage.includes('tem perfil') || stage.includes('perfil menor');
-      })
-    : leads;
+  const filteredLeads = leads;
 
   const sortedLeads = [...filteredLeads].sort((a, b) => {
     let aValue: any = a[sortField];
@@ -259,7 +255,6 @@ export const LeadsTable = ({ leads, filterByImportant = false }: LeadsTableProps
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-muted-foreground">
             Mostrando {startIndex + 1}-{Math.min(endIndex, sortedLeads.length)} de {sortedLeads.length} leads
-            {filterByImportant && " (filtrado por leads importantes)"}
           </p>
           
           {totalPages > 1 && (

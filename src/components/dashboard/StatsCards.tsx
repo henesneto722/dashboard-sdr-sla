@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, TrendingUp, AlertCircle, Users, Award, AlertTriangle } from "lucide-react";
+import { Clock, TrendingUp, AlertCircle, Users, Award } from "lucide-react";
 import { Lead, SDRPerformance, formatTime } from "@/lib/mockData";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTodayAttendedLeads, fetchAllPendingLeads } from "@/lib/api";
@@ -9,17 +9,13 @@ interface StatsCardsProps {
   sdrPerformance: SDRPerformance[];
   monthlyRanking?: SDRPerformance[]; // Ranking mensal para o card "Melhor SDR"
   isFilteredBySDR?: boolean; // true quando um SDR específico está selecionado
-  importantPendingCount?: number; // número de leads importantes pendentes
-  onImportantClick?: () => void; // callback ao clicar no card de leads importantes
 }
 
 export const StatsCards = ({ 
   leads, 
   sdrPerformance,
   monthlyRanking = [], // Ranking mensal (usado para "Melhor SDR")
-  isFilteredBySDR = false,
-  importantPendingCount = 0,
-  onImportantClick
+  isFilteredBySDR = false
 }: StatsCardsProps) => {
   // Buscar leads atendidos hoje diretamente do backend (independente do filtro de período)
   const { data: todayAttendedLeads = [] } = useQuery({
@@ -90,17 +86,6 @@ export const StatsCards = ({
       bgColor: "bg-slate-500/15",
       iconColor: "text-slate-400",
     },
-    {
-      title: "Leads Importantes",
-      value: importantPendingCount.toString(),
-      icon: AlertTriangle,
-      color: importantPendingCount > 0 ? "text-orange-500" : "text-slate-400",
-      bgColor: importantPendingCount > 0 ? "bg-orange-500/15" : "bg-slate-500/15",
-      iconColor: importantPendingCount > 0 ? "text-orange-500" : "text-slate-400",
-      subtitle: importantPendingCount > 0 ? "Aguardando atendimento" : "Nenhum pendente",
-      clickable: importantPendingCount > 0,
-      onClick: onImportantClick,
-    },
   ];
 
   // Card "Melhor SDR" só aparece quando NÃO está filtrado por SDR individual
@@ -124,7 +109,7 @@ export const StatsCards = ({
   ];
 
   return (
-    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 ${isFilteredBySDR ? 'lg:grid-cols-5' : 'lg:grid-cols-6'}`}>
+    <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-8 ${isFilteredBySDR ? 'lg:grid-cols-4' : 'lg:grid-cols-5'}`}>
       {stats.map((stat, index) => (
         <Card 
           key={index} 
@@ -133,9 +118,7 @@ export const StatsCards = ({
             border-border hover:shadow-lg transition-all duration-300
             dark:bg-gradient-to-br dark:from-slate-800/90 dark:to-slate-900/90
             dark:border-slate-700/50 dark:hover:border-slate-600/50
-            ${stat.clickable ? 'cursor-pointer hover:border-orange-500/50 dark:hover:border-orange-400/50' : ''}
           `}
-          onClick={stat.clickable ? stat.onClick : undefined}
         >
           <CardContent className="p-5">
             {/* Layout principal */}

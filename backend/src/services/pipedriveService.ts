@@ -23,7 +23,7 @@ interface PipelineInfo {
   name: string;
   isSDR: boolean; // true se é relacionado a SDR
   isMainSDR: boolean; // true se é o funil principal "SDR" (leads pendentes)
-  isIndividualSDR: boolean; // true se é funil individual "NOME - SDR" (leads atendidos)
+  isIndividualCloser: boolean; // true se é funil individual "CLOSER - NOME" (leads atendidos)
 }
 
 interface StageInfo {
@@ -84,14 +84,14 @@ async function fetchPipelines(): Promise<PipelineInfo[]> {
       // - Ou é exatamente "sdr"
       const isMainSDR = (nameLower === 'sdr') || 
                        (nameLower.includes('sdr') && !nameLower.includes('-') && !nameLower.includes('individual'));
-      const isIndividualSDR = nameLower.includes('- sdr') || nameLower.includes('-sdr'); // "NOME - SDR"
+      const isIndividualCloser = nameLower.includes('closer -') || nameLower.includes('closer-'); // "CLOSER - NOME"
       
       return {
         id: p.id,
         name: p.name,
-        isSDR: isMainSDR || isIndividualSDR,
+        isSDR: isMainSDR, // Apenas o funil principal SDR
         isMainSDR,
-        isIndividualSDR
+        isIndividualCloser
       };
     });
   } catch (error) {
@@ -170,8 +170,15 @@ async function loadPipedriveData(): Promise<void> {
   // Log dos pipelines SDR encontrados
   const sdrPipelines = pipelines.filter(p => p.isSDR);
   if (sdrPipelines.length > 0) {
-    console.log('📋 Pipelines SDR encontrados:');
+    console.log('📋 Pipelines SDR (principal) encontrados:');
     sdrPipelines.forEach(p => console.log(`   - ${p.name} (ID: ${p.id})`));
+  }
+  
+  // Log dos pipelines CLOSER encontrados
+  const closerPipelines = pipelines.filter(p => p.isIndividualCloser);
+  if (closerPipelines.length > 0) {
+    console.log('📋 Pipelines CLOSER encontrados:');
+    closerPipelines.forEach(p => console.log(`   - ${p.name} (ID: ${p.id})`));
   }
 }
 
@@ -192,7 +199,7 @@ export async function getStageInfo(stageId: string | number): Promise<StageInfo 
 }
 
 /**
- * Verifica se um pipeline é de SDR (nome contém "- SDR" ou é "SDR")
+ * Verifica se um pipeline é de SDR (funil principal)
  */
 export async function isSDRPipeline(pipelineId: string | number): Promise<boolean> {
   const pipeline = await getPipelineInfo(pipelineId);
@@ -237,16 +244,16 @@ export async function getMainSDRPipelineId(): Promise<string | null> {
 }
 
 /**
- * Verifica se é um funil individual de SDR "NOME - SDR" (leads atendidos)
+ * Verifica se é um funil individual de SDR "CLOSER - NOME" (leads atendidos)
  */
-export async function isIndividualSDRPipeline(pipelineId: string | number): Promise<boolean> {
+export async function isIndividualCloserPipeline(pipelineId: string | number): Promise<boolean> {
   const pipeline = await getPipelineInfo(pipelineId);
-  return pipeline?.isIndividualSDR || false;
+  return pipeline?.isIndividualCloser || false;
 }
 
 /**
  * Extrai o nome do SDR do nome do pipeline
- * Ex: "João - SDR" → "João"
+ * Ex: "CLOSER - João" → "João"
  * Se for o funil "SDR" principal, retorna "SDR Geral"
  */
 export async function getSDRNameFromPipelineId(pipelineId: string | number): Promise<string> {
@@ -256,21 +263,24 @@ export async function getSDRNameFromPipelineId(pipelineId: string | number): Pro
     return `SDR Pipeline ${pipelineId}`;
   }
 
-  if (!pipeline.isSDR) {
-    return pipeline.name;
-  }
 
-  // Se for o funil "SDR" principal (nome é exatamente "SDR")
-  if (pipeline.name.toLowerCase().trim() === 'sdr') {
+
+  // Se for o funil "SDR" principal
+  if (pipeline.isMainSDR) {
     return 'SDR Geral';
   }
 
-  // Extrai o nome do SDR removendo "- SDR" ou "-SDR"
-  const name = pipeline.name
-    .replace(/\s*-\s*SDR\s*/i, '')
-    .trim();
-  
-  return name || pipeline.name;
+  // Se for um funil individual de CLOSER, extrai o nome
+  if (pipeline.isIndividualCloser) {
+    // Extrai o nome do CLOSER removendo "CLOSER -" ou "CLOSER-"
+    const name = pipeline.name
+      .replace(/\s*CLOSER\s*-\s*/i, '')
+      .trim();
+    
+    return name || pipeline.name;
+  }
+
+  return pipeline.name;
 }
 
 /**
@@ -283,18 +293,20 @@ export async function getStageName(stageId: string | number): Promise<string> {
 
 /**
  * Obtém a prioridade do stage baseado no nome
- * TEM PERFIL = 1 (maior prioridade)
- * PERFIL MENOR = 2
- * INCONCLUSIVO = 3
- * SEM PERFIL = 4 (menor prioridade)
+ * LEAD FORMULÁRIO = 1 (maior prioridade)
+ * LEAD CHATBOX = 2
+ * LEAD INSTAGRAM = 3
+ * ÁUREA FINAL = 4
+ * FABIO FINAL = 5 (menor prioridade)
  */
 export function getStagePriority(stageName: string): number {
   const name = stageName.toUpperCase().trim();
   
-  if (name.includes('TEM PERFIL')) return 1;
-  if (name.includes('PERFIL MENOR')) return 2;
-  if (name.includes('INCONCLUSIVO')) return 3;
-  if (name.includes('SEM PERFIL')) return 4;
+  if (name.includes('LEAD FORMULÁRIO') || name.includes('LEAD FORMULARIO')) return 1;
+  if (name.includes('LEAD CHATBOX')) return 2;
+  if (name.includes('LEAD INSTAGRAM')) return 3;
+  if (name.includes('ÁUREA FINAL') || name.includes('AUREA FINAL')) return 4;
+  if (name.includes('FABIO FINAL')) return 5;
   
   return 99; // Outros stages
 }
@@ -310,7 +322,7 @@ export function invalidateCache(): void {
 }
 
 /**
- * Lista todos os pipelines SDR
+ * Lista todos os pipelines SDR (principal) (principal)
  */
 export async function listSDRPipelines(): Promise<PipelineInfo[]> {
   await loadPipedriveData();
@@ -318,6 +330,28 @@ export async function listSDRPipelines(): Promise<PipelineInfo[]> {
   if (!pipelinesCache) return [];
   
   return Array.from(pipelinesCache.values()).filter(p => p.isSDR);
+}
+
+/**
+ * Lista todos os pipelines CLOSER (individuais)
+ */
+export async function listCloserPipelines(): Promise<PipelineInfo[]> {
+  await loadPipedriveData();
+  
+  if (!pipelinesCache) return [];
+  
+  return Array.from(pipelinesCache.values()).filter(p => p.isIndividualCloser);
+}
+
+/**
+ * Lista todos os pipelines CLOSER (individuais)
+ */
+export async function listCloserPipelines(): Promise<PipelineInfo[]> {
+  await loadPipedriveData();
+  
+  if (!pipelinesCache) return [];
+  
+  return Array.from(pipelinesCache.values()).filter(p => p.isIndividualCloser);
 }
 
 /**
@@ -330,4 +364,3 @@ export async function listAllPipelines(): Promise<PipelineInfo[]> {
   
   return Array.from(pipelinesCache.values());
 }
-

@@ -12,7 +12,7 @@ interface TimelineProps {
 }
 
 /**
- * Identifica o tipo de perfil do lead baseado no stage_name
+ * Identifica o tipo de etapa do lead baseado no stage_name
  */
 function getProfileType(stageName: string | null): {
   label: string;
@@ -21,7 +21,7 @@ function getProfileType(stageName: string | null): {
 } {
   if (!stageName) {
     return {
-      label: 'Sem Perfil',
+      label: 'Outro',
       variant: 'outline',
       className: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
     };
@@ -29,41 +29,49 @@ function getProfileType(stageName: string | null): {
 
   const stage = stageName.toLowerCase();
 
-  if (stage.includes('tem perfil') || stage === 'tem perfil') {
+  if (stage.includes('lead formulário') || stage.includes('lead formularío')) {
     return {
-      label: 'Tem Perfil',
+      label: 'Lead Formulário',
       variant: 'destructive',
       className: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30'
     };
   }
 
-  if (stage.includes('perfil menor') || stage === 'perfil menor') {
+  if (stage.includes('lead chatbox')) {
     return {
-      label: 'Perfil Menor',
+      label: 'Lead Chatbox',
       variant: 'secondary',
       className: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/30'
     };
   }
 
-  if (stage.includes('inconclusivo') || stage === 'inconclusivo') {
+  if (stage.includes('lead instagram')) {
     return {
-      label: 'Inconclusivo',
+      label: 'Lead Instagram',
       variant: 'outline',
-      className: 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border-slate-500/30'
+      className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30'
     };
   }
 
-  if (stage.includes('sem perfil') || stage === 'sem perfil') {
+  if (stage.includes('áurea final') || stage.includes('aurea final')) {
     return {
-      label: 'Sem Perfil',
+      label: 'ÁUREA FINAL',
       variant: 'outline',
-      className: 'bg-gray-500/10 text-gray-400 dark:text-gray-500 border-gray-500/20'
+      className: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30'
+    };
+  }
+
+  if (stage.includes('fabio final')) {
+    return {
+      label: 'FABIO FINAL',
+      variant: 'outline',
+      className: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/30'
     };
   }
 
   // Default
   return {
-    label: 'Sem Perfil',
+    label: 'Outro',
     variant: 'outline',
     className: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
   };

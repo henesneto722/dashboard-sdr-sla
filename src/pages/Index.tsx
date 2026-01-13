@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { calculateSDRPerformance, Lead, setThresholds, getThresholds, SDRPerformance } from "@/lib/mockData";
-import { fetchLeads, fetchSDRs, fetchImportantPendingLeads } from "@/lib/api";
+import { fetchLeads, fetchSDRs } from "@/lib/api";
 import { StatsCards } from "@/components/dashboard/StatsCards";
 import { SDRRanking } from "@/components/dashboard/SDRRanking";
 import { LeadsTable } from "@/components/dashboard/LeadsTable";
@@ -27,14 +27,12 @@ const Index = () => {
   // Estado dos dados
   const [allLeads, setAllLeads] = useState<Lead[]>([]);
   const [sdrsInfo, setSDRsInfo] = useState<SDRInfo[]>([]);
-  const [importantPendingCount, setImportantPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filtros
   const [selectedPeriod, setSelectedPeriod] = useState("30days");
   const [selectedSDR, setSelectedSDR] = useState("all"); // Armazena o sdr_name para exibição
-  const [filterByImportant, setFilterByImportant] = useState(false); // filtra apenas leads importantes
 
   // Ref para scroll automático na tabela
   const leadsTableRef = useRef<HTMLDivElement>(null);
@@ -47,21 +45,6 @@ const Index = () => {
     filtersRef.current = { selectedPeriod, selectedSDR };
   }, [selectedPeriod, selectedSDR]);
 
-  // Função para ativar filtro e scroll
-  const handleImportantClick = () => {
-    const newFilterState = !filterByImportant;
-    setFilterByImportant(newFilterState);
-    
-    if (newFilterState && leadsTableRef.current) {
-      // Pequeno delay para garantir que o estado atualizou
-      setTimeout(() => {
-        leadsTableRef.current?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
-        });
-      }, 100);
-    }
-  };
 
   // Hook de Notificações (deve vir antes para estar disponível no refreshData)
   const { detectNewPendingLeads, detectAttendedLeads } = useNotifications();
@@ -74,10 +57,6 @@ const Index = () => {
       // Buscar SDRs
       const sdrsData = await fetchSDRs();
       setSDRsInfo(sdrsData || []);
-      
-      // Buscar leads importantes pendentes
-      const importantData = await fetchImportantPendingLeads();
-      setImportantPendingCount(importantData?.count || 0);
       
       // Encontrar o sdr_id correspondente ao nome selecionado
       let sdrIdToFilter: string | undefined;
@@ -116,10 +95,6 @@ const Index = () => {
         const sdrsData = await fetchSDRs();
         setSDRsInfo(sdrsData || []);
         
-        // Buscar leads importantes pendentes
-        const importantData = await fetchImportantPendingLeads();
-        setImportantPendingCount(importantData?.count || 0);
-        
         // Encontrar o sdr_id correspondente ao nome selecionado
         let sdrIdToFilter: string | undefined;
         if (selectedSDR !== 'all' && sdrsData) {
@@ -144,7 +119,6 @@ const Index = () => {
         setError('Não foi possível conectar ao servidor. Verifique se o backend está rodando.');
         setAllLeads([]);
         setSDRsInfo([]);
-        setImportantPendingCount(0);
       } finally {
         setLoading(false);
       }
@@ -296,23 +270,7 @@ const Index = () => {
                   sdrPerformance={sdrPerformance}
                   monthlyRanking={monthlyRanking}
                   isFilteredBySDR={selectedSDR !== "all"} 
-                  importantPendingCount={importantPendingCount}
-                  onImportantClick={handleImportantClick}
                 />
-                
-                {filterByImportant && (
-                  <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg flex items-center justify-between">
-                    <span className="text-orange-600 font-medium">
-                      🔍 Filtrando apenas leads importantes (Tem perfil / Perfil menor)
-                    </span>
-                    <button 
-                      onClick={() => setFilterByImportant(false)}
-                      className="text-orange-600 hover:text-orange-700 text-sm underline"
-                    >
-                      Limpar filtro
-                    </button>
-                  </div>
-                )}
                 
                 <SDRRanking onMonthlyRankingChange={setMonthlyRanking} />
                 
@@ -330,7 +288,7 @@ const Index = () => {
                 <Timeline leads={filteredLeads} />
                 
                 <div ref={leadsTableRef} data-leads-table>
-                  <LeadsTable leads={filteredLeads} filterByImportant={filterByImportant} />
+                  <LeadsTable leads={filteredLeads} />
                 </div>
               </>
             )}

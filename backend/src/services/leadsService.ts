@@ -669,7 +669,7 @@ export async function getAllPendingLeads(): Promise<{ count: number; leads: Lead
   // Filtrar em memória:
   // 1. Excluir leads com status 'lost' (lost_time não nulo no Pipedrive)
   // 2. Filtrar apenas leads em stages válidos
-  const validStages = ['tem perfil', 'perfil menor', 'inconclusivo', 'sem perfil'];
+  const validStages = ['lead formulário', 'lead formularío', 'lead chatbox', 'lead instagram', 'áurea final', 'aurea final', 'fabio final'];
   const validPendingLeads = (leads || []).filter(lead => {
     // Excluir apenas se status for explicitamente 'lost' (permitir NULL/undefined)
     // Isso garante compatibilidade com leads antigos que não têm o campo status
@@ -779,12 +779,10 @@ export async function getImportantPendingLeads(): Promise<{ count: number; leads
     }
     
     // 3. Verificação ESTRITA com comparação EXATA:
-    // Stage deve ser EXATAMENTE "tem perfil" OU "perfil menor"
-    // Usar includes() para capturar variações como "Tem Perfil", "TEM PERFIL", etc.
-    const isTemPerfil = stageName.includes('tem perfil') && !stageName.includes('sem perfil');
-    const isPerfilMenor = stageName.includes('perfil menor');
-    
-    const isImportant = isTemPerfil || isPerfilMenor;
+    // Stage deve ser uma das etapas válidas: Lead Formulário, Lead Chatbox, Lead Instagram, ÁUREA FINAL, FABIO FINAL
+    // Usar includes() para capturar variações
+    const validStages = ['lead formulário', 'lead formularío', 'lead chatbox', 'lead instagram', 'áurea final', 'aurea final', 'fabio final'];
+    const isImportant = validStages.some(valid => stageName.includes(valid));
     
     if (isImportant) {
       console.log(`✅ [getImportantPendingLeads] Lead ${lead.lead_id} ("${lead.lead_name}") incluído - Stage: "${lead.stage_name}" (normalizado: "${stageName}"), Status: "${lead.status || '(null)'}"`);

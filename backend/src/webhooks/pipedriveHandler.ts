@@ -5,11 +5,11 @@
  * REGRAS DE NEGÓCIO:
  * 
  * 1. FUNIL PRINCIPAL "SDR":
- *    - Apenas contabiliza deals nas etapas: TEM PERFIL, PERFIL MENOR, INCONCLUSIVO, SEM PERFIL
+ *    - Apenas contabiliza deals nas etapas: Lead Formulário, Lead Chatbox, Lead Instagram, ÁUREA FINAL, FABIO FINAL
  *    - Outras etapas são IGNORADAS completamente
- *    - Prioridade: TEM PERFIL (1) > PERFIL MENOR (2) > INCONCLUSIVO (3) > SEM PERFIL (4)
+ *    - Prioridade: Lead Formulário (1) > Lead Chatbox (2) > Lead Instagram (3) > ÁUREA FINAL (4) > FABIO FINAL (5)
  * 
- * 2. FUNIS ESPECÍFICOS "NOME - SDR":
+ * 2. FUNIS ESPECÍFICOS "CLOSER - NOME":
  *    - Quando deal é movido do funil "SDR" para um funil específico → ATENDIDO
  *    - Mudanças de etapa DENTRO de funis específicos são IGNORADAS
  * 
@@ -19,10 +19,13 @@
 
 // Etapas válidas do funil principal "SDR" (apenas essas são contabilizadas)
 const VALID_SDR_STAGES = [
-  'tem perfil',
-  'perfil menor',
-  'inconclusivo',
-  'sem perfil',
+  'lead formulário',
+  'lead formularío',
+  'lead chatbox',
+  'lead instagram',
+  'áurea final',
+  'aurea final',
+  'fabio final',
 ];
 
 // Verifica se uma etapa é válida para contabilização
@@ -43,7 +46,7 @@ import { createAttendanceEvent } from '../services/sdrAttendanceService.js';
 import { 
   isSDRPipeline,
   isMainSDRPipeline,
-  isIndividualSDRPipeline,
+  isIndividualCloserPipeline,
   getSDRNameFromPipelineId, 
   getStageName,
   getStagePriority 
@@ -113,7 +116,7 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
 
     // Verificar se é o funil principal "SDR" ou um funil individual "NOME - SDR"
     const isMain = await isMainSDRPipeline(pipelineId);
-    const isIndividual = await isIndividualSDRPipeline(pipelineId);
+    const isIndividual = await isIndividualCloserPipeline(pipelineId);
 
     // Buscar nome do SDR e do stage
     const sdrName = await getSDRNameFromPipelineId(pipelineId);
