@@ -93,7 +93,7 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
       return;
     }
 
-    // Verificar se é um pipeline de SDR
+    // Verificar se é um pipeline relevante (SDR principal ou CLOSER individual)
     if (!pipelineId) {
       console.log('⚠️ Webhook sem pipeline_id');
       res.status(200).json({ 
@@ -103,20 +103,19 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
       return;
     }
 
-    const isSDR = await isSDRPipeline(pipelineId);
+    // Verificar se é o funil principal "SDR" ou um funil individual CLOSER
+    const isMain = await isMainSDRPipeline(pipelineId);
+    const isIndividual = await isIndividualCloserPipeline(pipelineId);
     
-    if (!isSDR) {
-      console.log(`⏭️ Pipeline ${pipelineId} não é de SDR. Ignorando.`);
+    // Se não é nem funil principal SDR nem funil CLOSER individual, ignorar
+    if (!isMain && !isIndividual) {
+      console.log(`⏭️ Pipeline ${pipelineId} não é relevante (não é SDR principal nem CLOSER individual). Ignorando.`);
       res.status(200).json({ 
         success: true, 
-        message: 'Pipeline não é de SDR. Ignorado.' 
+        message: 'Pipeline não é relevante. Ignorado.' 
       });
       return;
     }
-
-    // Verificar se é o funil principal "SDR" ou um funil individual "NOME - SDR"
-    const isMain = await isMainSDRPipeline(pipelineId);
-    const isIndividual = await isIndividualCloserPipeline(pipelineId);
 
     // Buscar nome do SDR e do stage
     const sdrName = await getSDRNameFromPipelineId(pipelineId);
@@ -127,8 +126,9 @@ export async function handlePipedriveWebhook(req: Request, res: Response): Promi
     const isLost = lostTime !== null && lostTime !== undefined;
     const finalStatus = isLost ? 'lost' : dealStatus;
 
-    console.log(`📊 Pipeline: ${isMain ? 'PRINCIPAL (SDR)' : 'INDIVIDUAL (' + sdrName + ')'}`);
-    console.log(`👤 SDR: ${sdrName}, Stage: ${stageName} (prioridade: ${stagePriority})`);
+    console.log(`📊 Pipeline: ${isMain ? 'PRINCIPAL (SDR)' : isIndividual ? 'CLOSER INDIVIDUAL (' + sdrName + ')' : 'OUTRO'}`);
+    console.log(`👤 Closer/SDR: ${sdrName}, Stage: ${stageName} (prioridade: ${stagePriority})`);
+    console.log(`🔍 isMain: ${isMain}, isIndividual: ${isIndividual}`);
 
     // Normalizar ação
     const normalizedAction = normalizeAction(action);
