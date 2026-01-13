@@ -41,7 +41,7 @@ function isValidSDRStage(stageName: string | null): boolean {
 }
 
 import { Request, Response } from 'express';
-import { createLead, attendLead, findLeadByPipedriveId, updateLeadStage, updateLeadStatus } from '../services/leadsService.js';
+import { createLead, attendLead, findLeadByPipedriveId, updateLeadStage, updateLeadStatus, deleteLeadByPipedriveId } from '../services/leadsService.js';
 import { createAttendanceEvent } from '../services/sdrAttendanceService.js';
 import { 
   isSDRPipeline,
@@ -473,8 +473,35 @@ async function handleDealUpdated(
       return;
     }
     
-    // Etapa inválida no funil principal - ignorar
+    // Etapa inválida no funil principal - deletar lead do banco
+    // Se o lead estava em uma etapa válida e agora está em etapa inválida,
+    // e não foi movido para um funil CLOSER, deve ser excluído
     if (isMainPipeline && !isValidSDRStage(stageName)) {
+      // Verificar se o lead estava em uma etapa válida anteriormente
+      const wasInValidStage = existingLead.stage_name && isValidSDRStage(existingLead.stage_name);
+      
+      // Se estava em etapa válida e agora não está, e não foi atendido, deletar
+      if (wasInValidStage && !existingLead.attended_at) {
+        console.log(`🗑️ Lead ${dealIdStr} saiu da etapa válida "${existingLead.stage_name}" para etapa inválida "${stageName}". Deletando do banco.`);
+        
+        try {
+          await deleteLeadByPipedriveId(dealIdStr);
+          res.status(200).json({ 
+            success: true, 
+            message: `Lead removido do dashboard - saiu das etapas contabilizadas`
+          });
+          return;
+        } catch (error) {
+          console.error(`❌ Erro ao deletar lead ${dealIdStr}:`, error);
+          res.status(500).json({ 
+            success: false, 
+            error: 'Erro ao deletar lead' 
+          });
+          return;
+        }
+      }
+      
+      // Se não estava em etapa válida antes, apenas ignorar
       console.log(`⏭️ Lead ${dealIdStr} movido para etapa "${stageName}" não válida. Ignorando.`);
       res.status(200).json({ 
         success: true, 

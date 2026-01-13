@@ -155,6 +155,31 @@ export async function attendLead(
 }
 
 /**
+ * Deleta um lead pelo ID do Pipedrive
+ * Invalida o cache após exclusão
+ */
+export async function deleteLeadByPipedriveId(leadId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('leads_sla')
+    .delete()
+    .eq('lead_id', leadId);
+
+  if (error) {
+    console.error(`Erro ao deletar lead ${leadId}:`, error);
+    throw new Error(`Erro ao deletar lead: ${error.message}`);
+  }
+
+  // Invalidar cache
+  cache.invalidate(CACHE_KEYS.GENERAL_METRICS);
+  cache.invalidate(CACHE_KEYS.SDR_RANKING);
+  cache.invalidate(CACHE_KEYS.IMPORTANT_PENDING);
+  cache.invalidate(CACHE_KEYS.ALL_PENDING);
+
+  console.log(`✅ Lead ${leadId} deletado do banco de dados`);
+  return true;
+}
+
+/**
  * Atualiza o status de um lead
  */
 export async function updateLeadStatus(
