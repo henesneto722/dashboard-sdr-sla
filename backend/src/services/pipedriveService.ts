@@ -23,7 +23,7 @@ interface PipelineInfo {
   name: string;
   isSDR: boolean; // true se é relacionado a SDR
   isMainSDR: boolean; // true se é o funil principal "SDR" (leads pendentes)
-  isIndividualCloser: boolean; // true se é funil individual "CLOSER - NOME" (leads atendidos)
+  isIndividualCloser: boolean; // true se é funil individual "CLOSER - NOME" ou "NOME - CLOSER JUNIOR" (leads atendidos)
 }
 
 interface StageInfo {
@@ -84,7 +84,13 @@ async function fetchPipelines(): Promise<PipelineInfo[]> {
       // - Ou é exatamente "sdr"
       const isMainSDR = (nameLower === 'sdr') || 
                        (nameLower.includes('sdr') && !nameLower.includes('-') && !nameLower.includes('individual'));
-      const isIndividualCloser = nameLower.includes('closer -') || nameLower.includes('closer-'); // "CLOSER - NOME"
+      // Detecta funis individuais de CLOSER:
+      // - "CLOSER - NOME" ou "CLOSER-NOME"
+      // - "NOME - CLOSER JUNIOR" ou "NOME-CLOSER JUNIOR"
+      const isIndividualCloser = 
+        nameLower.includes('closer -') || 
+        nameLower.includes('closer-') ||
+        (nameLower.includes('closer junior') && nameLower.includes('-'));
       
       return {
         id: p.id,
@@ -244,7 +250,7 @@ export async function getMainSDRPipelineId(): Promise<string | null> {
 }
 
 /**
- * Verifica se é um funil individual de SDR "CLOSER - NOME" (leads atendidos)
+ * Verifica se é um funil individual de CLOSER "CLOSER - NOME" ou "NOME - CLOSER JUNIOR" (leads atendidos)
  */
 export async function isIndividualCloserPipeline(pipelineId: string | number): Promise<boolean> {
   const pipeline = await getPipelineInfo(pipelineId);
@@ -272,7 +278,17 @@ export async function getSDRNameFromPipelineId(pipelineId: string | number): Pro
 
   // Se for um funil individual de CLOSER, extrai o nome
   if (pipeline.isIndividualCloser) {
-    // Extrai o nome do CLOSER removendo "CLOSER -" ou "CLOSER-"
+    const nameLower = pipeline.name.toLowerCase();
+    
+    // Se for padrão "NOME - CLOSER JUNIOR", extrai o nome antes do "-"
+    if (nameLower.includes('closer junior') && nameLower.includes('-')) {
+      const parts = pipeline.name.split('-');
+      if (parts.length > 0) {
+        return parts[0].trim();
+      }
+    }
+    
+    // Se for padrão "CLOSER - NOME", extrai o nome removendo "CLOSER -" ou "CLOSER-"
     const name = pipeline.name
       .replace(/\s*CLOSER\s*-\s*/i, '')
       .trim();
