@@ -450,19 +450,6 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
                   return `Nenhum dado disponível para ${format(selectedDate!, "dd/MM/yyyy", { locale: ptBR })}`;
                 })()}
               </p>
-              <p className="text-sm text-muted-foreground max-w-md">
-                {(() => {
-                  const now = new Date();
-                  const saoPauloDate = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
-                  const today = new Date(saoPauloDate.getFullYear(), saoPauloDate.getMonth(), saoPauloDate.getDate());
-                  const isToday = selectedDate && selectedDate.getTime() === today.getTime();
-                  
-                  if (isToday) {
-                    return "Os eventos são registrados quando leads são movidos do pipeline principal \"SDR\" para pipelines individuais \"NOME - SDR\". Selecione outra data no calendário para ver dados anteriores.";
-                  }
-                  return "Não há eventos registrados para esta data. Tente selecionar outra data no calendário ou voltar para o dia atual.";
-                })()}
-              </p>
               
               {/* Botão para voltar ao dia atual quando não estiver no dia atual */}
               {(() => {
