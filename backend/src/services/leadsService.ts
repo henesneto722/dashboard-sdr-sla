@@ -173,7 +173,6 @@ export async function deleteLeadByPipedriveId(leadId: string): Promise<boolean> 
   cache.invalidate(CACHE_KEYS.GENERAL_METRICS);
   cache.invalidate(CACHE_KEYS.SDR_RANKING);
   cache.invalidate(CACHE_KEYS.IMPORTANT_PENDING);
-  cache.invalidate(CACHE_KEYS.ALL_PENDING);
 
   console.log(`✅ Lead ${leadId} deletado do banco de dados`);
   return true;
