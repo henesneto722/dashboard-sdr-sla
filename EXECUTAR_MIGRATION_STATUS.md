@@ -58,3 +58,4 @@ Após adicionar a coluna, você pode precisar:
 1. Reiniciar o backend no Render para limpar o cache do schema
 2. Aguardar alguns segundos para o Supabase atualizar o schema cache
 
+

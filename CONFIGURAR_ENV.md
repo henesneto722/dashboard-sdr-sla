@@ -71,3 +71,4 @@ O arquivo `.env` está no `.gitignore` e **NÃO** será commitado no Git. Isso �
 Para produção (Render.com), você deve configurar as variáveis de ambiente no painel do Render.
 
 
+

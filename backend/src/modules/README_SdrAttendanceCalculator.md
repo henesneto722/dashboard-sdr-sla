@@ -255,3 +255,4 @@ console.log(JSON.stringify(result, null, 2));
 - Eventos com `user_id` ou `timestamp` inválidos são ignorados com um warning
 
 
+

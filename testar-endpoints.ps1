@@ -78,3 +78,4 @@ Write-Host "2. Execute os scripts SQL no Supabase para comparar" -ForegroundColo
 Write-Host "3. Verifique o frontend para visualização" -ForegroundColor White
 
 
+

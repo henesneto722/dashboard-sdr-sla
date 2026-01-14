@@ -26,6 +26,9 @@ const getDisplayName = (stageName: string | null, isAttended: boolean, status: s
   // Se está perdido, mostrar "PERDIDO"
   if (status === 'lost') return 'PERDIDO';
   
+  // Se está inválido, mostrar "INVALIDO"
+  if (status === 'INVALIDO') return 'INVALIDO';
+  
   // Se foi atendido (está em funil específico), sempre mostrar "Atendido"
   if (isAttended) return 'Atendido';
   
@@ -39,6 +42,11 @@ const getProfileColor = (stageName: string | null, isAttended: boolean, status: 
   // Se está perdido, sempre preto
   if (status === 'lost') {
     return { bg: 'bg-gray-900/10 dark:bg-gray-100/10', text: 'text-gray-900 dark:text-gray-100', border: 'border-gray-900/30 dark:border-gray-100/30' };
+  }
+  
+  // Se está inválido, sempre vermelho
+  if (status === 'INVALIDO') {
+    return { bg: 'bg-red-900/10 dark:bg-red-100/10', text: 'text-red-900 dark:text-red-100', border: 'border-red-900/30 dark:border-red-100/30' };
   }
   
   // Se foi atendido, sempre verde
@@ -242,7 +250,11 @@ export const LeadsTable = ({ leads }: LeadsTableProps) => {
                     </TableCell>
                     <TableCell>
                       <Badge variant={getBadgeVariant()}>
-                        {lead.sla_minutes ? `${formatTime(lead.sla_minutes)} - ${label}` : "Pendente"}
+                        {lead.status === 'INVALIDO' 
+                          ? 'INVALIDO' 
+                          : lead.sla_minutes 
+                            ? `${formatTime(lead.sla_minutes)} - ${label}` 
+                            : "Pendente"}
                       </Badge>
                     </TableCell>
                   </TableRow>

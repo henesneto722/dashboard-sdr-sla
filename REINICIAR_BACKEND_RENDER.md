@@ -65,3 +65,4 @@ Após reiniciar, verifique se o serviço está funcionando:
 - Reinicialização: 30-60 segundos
 - Cache do schema atualizado: 5-10 segundos após reiniciar
 
+

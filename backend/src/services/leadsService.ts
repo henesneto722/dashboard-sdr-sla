@@ -250,22 +250,26 @@ export async function getGeneralMetrics(): Promise<GeneralMetrics> {
   const thirtyDaysAgo = getThirtyDaysAgo();
 
   // Query otimizada: seleciona apenas campos necessários
+  // Excluir leads com status 'INVALIDO' das métricas
   const { data: leads, error } = await supabase
     .from('leads_sla')
-    .select('sla_minutes, attended_at')
-    .gte('entered_at', thirtyDaysAgo);
+    .select('sla_minutes, attended_at, status')
+    .gte('entered_at', thirtyDaysAgo)
+    .or('status.is.null,status.neq.INVALIDO'); // Incluir leads sem status ou com status diferente de INVALIDO
 
   if (error) {
     throw new Error(`Erro ao buscar métricas: ${error.message}`);
   }
 
-  const attendedLeads = leads?.filter(l => l.sla_minutes !== null) || [];
+  // Filtrar leads válidos (não INVALIDOS) e que foram atendidos
+  const validLeads = leads?.filter(l => l.status !== 'INVALIDO') || [];
+  const attendedLeads = validLeads.filter(l => l.sla_minutes !== null) || [];
   const slaValues = attendedLeads.map(l => l.sla_minutes as number);
 
   const metrics: GeneralMetrics = {
-    total_leads: leads?.length || 0,
+    total_leads: validLeads.length,
     attended_leads: attendedLeads.length,
-    pending_leads: (leads?.length || 0) - attendedLeads.length,
+    pending_leads: validLeads.length - attendedLeads.length,
     avg_sla_minutes: slaValues.length > 0 
       ? Math.round(slaValues.reduce((a, b) => a + b, 0) / slaValues.length) 
       : 0,
@@ -693,13 +697,19 @@ export async function getAllPendingLeads(): Promise<{ count: number; leads: Lead
 
   // Filtrar em memória:
   // 1. Excluir leads com status 'lost' (lost_time não nulo no Pipedrive)
-  // 2. Filtrar apenas leads em stages válidos
-  const validStages = ['lead formulário', 'lead formularío', 'lead chatbox', 'lead instagram', 'áurea final', 'aurea final', 'fabio final'];
+  // 2. Excluir leads com status 'INVALIDO'
+  // 3. Filtrar apenas leads em stages válidos
+  const validStages = ['lead formulário', 'lead formulario', 'lead chatbot', 'leads instagram', 'áurea finalizou', 'aurea finalizou', 'fabio finalizou'];
   const validPendingLeads = (leads || []).filter(lead => {
     // Excluir apenas se status for explicitamente 'lost' (permitir NULL/undefined)
     // Isso garante compatibilidade com leads antigos que não têm o campo status
     // Se lost_time não é nulo no Pipedrive, o status será 'lost'
     if (lead.status && lead.status.toLowerCase() === 'lost') {
+      return false;
+    }
+    
+    // Excluir leads com status 'INVALIDO'
+    if (lead.status === 'INVALIDO') {
       return false;
     }
     
@@ -1268,11 +1278,18 @@ export async function syncPipedriveDeals(): Promise<{ inserted: number; updated:
 }
 
 // Função auxiliar para validar stage (mesma lógica do pipedriveHandler)
+// EXTREMA IMPORTÂNCIA: Apenas essas etapas são contabilizadas no funil principal "SDR"
 function isValidSDRStage(stageName: string | null): boolean {
   if (!stageName) return false;
-  const name = stageName.toLowerCase().trim();
-  return name.includes('tem perfil') || 
-         name.includes('perfil menor') || 
-         name.includes('inconclusivo') || 
-         name.includes('sem perfil');
+  const normalized = stageName.toLowerCase().trim();
+  const validStages = [
+    'lead formulário',
+    'lead formulario',
+    'lead chatbot',
+    'leads instagram',
+    'áurea finalizou',
+    'aurea finalizou',
+    'fabio finalizou',
+  ];
+  return validStages.some(valid => normalized.includes(valid));
 }

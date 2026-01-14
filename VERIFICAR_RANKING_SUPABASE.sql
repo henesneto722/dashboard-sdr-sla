@@ -83,3 +83,4 @@ WHERE attended_at >= DATE_TRUNC('month', NOW())
   AND sdr_id IS NOT NULL;
 
 
+

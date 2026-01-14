@@ -56,3 +56,4 @@ WHERE
 ORDER BY attended_at DESC;
 
 
+

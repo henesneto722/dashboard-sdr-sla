@@ -22,3 +22,4 @@ $envContent | Out-File -FilePath ".env" -Encoding utf8 -NoNewline
 Write-Host "✅ Arquivo .env criado com sucesso!" -ForegroundColor Green
 
 
+

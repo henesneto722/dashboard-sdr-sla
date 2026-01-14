@@ -147,3 +147,4 @@ Write-Host ""
 Write-Host "Diagnostico concluido!" -ForegroundColor Green
 Write-Host ""
 
+

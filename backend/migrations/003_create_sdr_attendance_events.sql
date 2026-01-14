@@ -63,3 +63,4 @@ COMMENT ON COLUMN sdr_attendance_events.deal_id IS 'ID do deal/lead que foi movi
 COMMENT ON COLUMN sdr_attendance_events.event_type IS 'Tipo de evento (stage_change, updated, attended, etc)';
 
 
+

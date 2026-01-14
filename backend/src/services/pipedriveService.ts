@@ -318,13 +318,14 @@ export async function getStageName(stageId: string | number): Promise<string> {
 export function getStagePriority(stageName: string): number {
   const name = stageName.toUpperCase().trim();
   
+  // EXTREMA IMPORTÂNCIA: Apenas essas etapas são contabilizadas no funil principal "SDR"
   if (name.includes('LEAD FORMULÁRIO') || name.includes('LEAD FORMULARIO')) return 1;
-  if (name.includes('LEAD CHATBOX')) return 2;
-  if (name.includes('LEAD INSTAGRAM')) return 3;
-  if (name.includes('ÁUREA FINAL') || name.includes('AUREA FINAL')) return 4;
-  if (name.includes('FABIO FINAL')) return 5;
+  if (name.includes('LEAD CHATBOT')) return 2;
+  if (name.includes('LEADS INSTAGRAM')) return 3;
+  if (name.includes('ÁUREA FINALIZOU') || name.includes('AUREA FINALIZOU')) return 4;
+  if (name.includes('FABIO FINALIZOU')) return 5;
   
-  return 99; // Outros stages
+  return 99; // Outros stages (não contabilizados)
 }
 
 /**

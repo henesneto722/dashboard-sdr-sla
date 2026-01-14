@@ -240,3 +240,4 @@ Se você já tem leads atendidos no sistema, eles não gerarão eventos retroati
 **Resumo:** A jornada de atendimento registra **apenas quando leads são atendidos** (movidos do pipeline principal para pipelines individuais), calculando os turnos de trabalho de cada SDR.
 
 
+

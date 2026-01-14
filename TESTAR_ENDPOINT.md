@@ -89,3 +89,4 @@ Se o backend estiver rodando no terminal, você deve ver logs como:
 - Lembre-se: apenas eventos NOVOS são registrados (não retroativos)
 
 
+

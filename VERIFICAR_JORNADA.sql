@@ -48,3 +48,4 @@ GROUP BY user_id, user_name
 ORDER BY eventos_hoje DESC;
 
 
+

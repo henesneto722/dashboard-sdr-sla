@@ -17,18 +17,24 @@
  *    - Tempo entre entrada no funil "SDR" e movimentação para funil específico
  */
 
-// Etapas válidas do funil principal "SDR" (apenas essas são contabilizadas)
+// Etapas válidas do funil principal "SDR" (EXTREMA IMPORTÂNCIA: apenas essas são contabilizadas)
 const VALID_SDR_STAGES = [
   'lead formulário',
-  'lead formularío',
-  'lead chatbox',
-  'lead instagram',
-  'áurea final',
-  'aurea final',
-  'fabio final',
+  'lead formulario',
+  'lead chatbot',
+  'leads instagram',
+  'áurea finalizou',
+  'aurea finalizou',
+  'fabio finalizou',
 ];
 
-// Verifica se uma etapa é válida para contabilização
+// Etapas válidas dos funis específicos "CLOSER - NOME" ou "NOME - CLOSER JUNIOR" (EXTREMA IMPORTÂNCIA: apenas essas são contabilizadas)
+const VALID_CLOSER_STAGES = [
+  'sdr',
+  'sdr com perfil',
+];
+
+// Verifica se uma etapa é válida para contabilização no funil principal "SDR"
 function isValidSDRStage(stageName: string | null): boolean {
   if (!stageName) {
     console.log('⚠️ isValidSDRStage: stageName é null/undefined');
@@ -37,6 +43,18 @@ function isValidSDRStage(stageName: string | null): boolean {
   const normalized = stageName.toLowerCase().trim();
   const isValid = VALID_SDR_STAGES.some(valid => normalized.includes(valid));
   console.log(`🔍 isValidSDRStage: "${stageName}" → "${normalized}" → válido: ${isValid}`);
+  return isValid;
+}
+
+// Verifica se uma etapa é válida para contabilização em funis específicos CLOSER
+function isValidCloserStage(stageName: string | null): boolean {
+  if (!stageName) {
+    console.log('⚠️ isValidCloserStage: stageName é null/undefined');
+    return false;
+  }
+  const normalized = stageName.toLowerCase().trim();
+  const isValid = VALID_CLOSER_STAGES.some(valid => normalized === valid || normalized.includes(valid));
+  console.log(`🔍 isValidCloserStage: "${stageName}" → "${normalized}" → válido: ${isValid}`);
   return isValid;
 }
 
@@ -234,8 +252,21 @@ async function handleDealAdded(
       return;
     }
 
-    // Se está no funil individual "NOME - SDR", já foi atendido pelo SDR
-    const isAttended = isIndividualPipeline;
+    // Se está no funil individual CLOSER, validar etapa antes de marcar como atendido
+    let isAttended = false;
+    if (isIndividualPipeline) {
+      // EXTREMA IMPORTÂNCIA: Apenas etapas válidas nas pipelines específicas contam como atendido
+      if (isValidCloserStage(stageName)) {
+        isAttended = true;
+      } else {
+        console.log(`⏭️ Deal ${dealIdStr} criado em pipeline CLOSER mas etapa "${stageName}" não é válida. Ignorando.`);
+        res.status(200).json({ 
+          success: true, 
+          message: `Etapa "${stageName}" não é válida em pipeline CLOSER. Ignorado.`
+        });
+        return;
+      }
+    }
     
     // Criar novo lead
     const leadData: any = {
@@ -249,14 +280,14 @@ async function handleDealAdded(
       status: dealStatus, // Status do Pipedrive (lost, open, won)
     };
 
-    // Se está no funil individual (SDR já pegou), marcar como atendido
+    // Se está no funil individual CLOSER com etapa válida, marcar como atendido
     if (isAttended) {
       leadData.sdr_id = pipelineId.toString();
       leadData.sdr_name = sdrName;
       leadData.attended_at = updateTime;
       
-      // Registrar evento de atendimento APENAS quando lead é criado já no pipeline individual
-      // Isso significa que o SDR pegou o lead diretamente (sem passar pelo pipeline principal)
+      // Registrar evento de atendimento APENAS quando lead é criado já no pipeline individual CLOSER
+      // Isso significa que o Closer pegou o lead diretamente (sem passar pelo pipeline principal)
       if (userId) {
         try {
           await createAttendanceEvent({
@@ -274,7 +305,7 @@ async function handleDealAdded(
               source: 'individual_pipeline_direct',
             },
           });
-          console.log(`📝 Evento de atendimento registrado para SDR ${userId} (deal ${dealIdStr}) - Criado já atendido`);
+          console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr}) - Criado já atendido`);
         } catch (error) {
           console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
         }
@@ -353,7 +384,21 @@ async function handleDealUpdated(
       
       console.log(`Lead ${dealIdStr} não encontrado. Criando...`);
       
-      const isAttended = isIndividualPipeline;
+      // Se está no funil individual CLOSER, validar etapa antes de marcar como atendido
+      let isAttended = false;
+      if (isIndividualPipeline) {
+        // EXTREMA IMPORTÂNCIA: Apenas etapas válidas nas pipelines específicas contam como atendido
+        if (isValidCloserStage(stageName)) {
+          isAttended = true;
+        } else {
+          console.log(`⏭️ Deal ${dealIdStr} criado em pipeline CLOSER mas etapa "${stageName}" não é válida. Ignorando.`);
+          res.status(200).json({ 
+            success: true, 
+            message: `Etapa "${stageName}" não é válida em pipeline CLOSER. Ignorado.`
+          });
+          return;
+        }
+      }
       
       const leadData: any = {
         lead_id: dealIdStr,
@@ -371,8 +416,8 @@ async function handleDealUpdated(
         leadData.sdr_name = sdrName;
         leadData.attended_at = updateTime;
         
-        // Registrar evento de atendimento APENAS quando lead é criado já atendido (pipeline individual)
-        // Isso significa que o SDR pegou o lead diretamente do pipeline individual
+        // Registrar evento de atendimento APENAS quando lead é criado já atendido (pipeline individual CLOSER)
+        // Isso significa que o Closer pegou o lead diretamente do pipeline individual
         if (userId) {
           try {
             await createAttendanceEvent({
@@ -390,7 +435,7 @@ async function handleDealUpdated(
                 source: 'individual_pipeline',
               },
             });
-            console.log(`📝 Evento de atendimento registrado para SDR ${userId} (deal ${dealIdStr}) - Criado já atendido`);
+            console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr}) - Criado já atendido`);
           } catch (error) {
             console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
           }
@@ -409,10 +454,31 @@ async function handleDealUpdated(
       return;
     }
 
+    // REGRA CRÍTICA: Se lead já foi atendido, IGNORAR COMPLETAMENTE qualquer movimentação
+    if (existingLead.attended_at) {
+      console.log(`⏭️ Lead ${dealIdStr} já foi atendido. Ignorando completamente qualquer movimentação.`);
+      res.status(200).json({ 
+        success: true, 
+        message: 'Lead já atendido. Movimentações são ignoradas.'
+      });
+      return;
+    }
+
     // Lead existe e ainda NÃO foi atendido
     
-    // Se agora está em um funil individual, marcar como atendido
-    if (!existingLead.attended_at && isIndividualPipeline) {
+    // Se agora está em um funil individual CLOSER, validar etapa antes de marcar como atendido
+    if (isIndividualPipeline) {
+      // EXTREMA IMPORTÂNCIA: Apenas etapas válidas nas pipelines específicas contam como atendido
+      if (!isValidCloserStage(stageName)) {
+        console.log(`⏭️ Lead ${dealIdStr} em pipeline CLOSER mas etapa "${stageName}" não é válida. Ignorando.`);
+        res.status(200).json({ 
+          success: true, 
+          message: `Etapa "${stageName}" não é válida em pipeline CLOSER. Ignorado.`
+        });
+        return;
+      }
+      
+      // Etapa válida em pipeline CLOSER → ATENDIDO
       const updatedLead = await attendLead(
         dealIdStr,
         pipelineId.toString(),
@@ -437,7 +503,7 @@ async function handleDealUpdated(
               is_main_pipeline: false,
             },
           });
-          console.log(`📝 Evento de atendimento registrado para SDR ${userId} (deal ${dealIdStr})`);
+          console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr})`);
         } catch (error) {
           console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
         }
@@ -452,63 +518,51 @@ async function handleDealUpdated(
       return;
     }
     
-    // Atualizar status do lead (se mudou)
-    if (existingLead.status !== dealStatus) {
-      await updateLeadStatus(dealIdStr, dealStatus);
-      console.log(`🔄 Lead ${dealIdStr} - Status atualizado para: ${dealStatus}`);
-    }
-    
-    // Se está no funil principal e mudou para uma etapa válida, atualizar
-    // NÃO registrar evento aqui - apenas mudanças dentro do pipeline principal não contam como jornada
-    if (isMainPipeline && isValidSDRStage(stageName)) {
-      if (existingLead.stage_name !== stageName) {
-        await updateLeadStage(dealIdStr, stageName, stagePriority);
-        console.log(`🔄 Lead ${dealIdStr} - Stage atualizado para: ${stageName}`);
-      }
-      res.status(200).json({ 
-        success: true, 
-        message: 'Lead atualizado',
-        lead: existingLead 
-      });
-      return;
-    }
-    
-    // Etapa inválida no funil principal - deletar lead do banco
-    // Se o lead estava em uma etapa válida e agora está em etapa inválida,
-    // e não foi movido para um funil CLOSER, deve ser excluído
-    if (isMainPipeline && !isValidSDRStage(stageName)) {
-      // Verificar se o lead estava em uma etapa válida anteriormente
-      const wasInValidStage = existingLead.stage_name && isValidSDRStage(existingLead.stage_name);
-      
-      // Se estava em etapa válida e agora não está, e não foi atendido, deletar
-      if (wasInValidStage && !existingLead.attended_at) {
-        console.log(`🗑️ Lead ${dealIdStr} saiu da etapa válida "${existingLead.stage_name}" para etapa inválida "${stageName}". Deletando do banco.`);
-        
-        try {
-          await deleteLeadByPipedriveId(dealIdStr);
-          res.status(200).json({ 
-            success: true, 
-            message: `Lead removido do dashboard - saiu das etapas contabilizadas`
-          });
-          return;
-        } catch (error) {
-          console.error(`❌ Erro ao deletar lead ${dealIdStr}:`, error);
-          res.status(500).json({ 
-            success: false, 
-            error: 'Erro ao deletar lead' 
-          });
-          return;
+    // Se está no funil principal "SDR"
+    if (isMainPipeline) {
+      // Se mudou para uma etapa válida, apenas atualizar stage
+      if (isValidSDRStage(stageName)) {
+        if (existingLead.stage_name !== stageName) {
+          await updateLeadStage(dealIdStr, stageName, stagePriority);
+          console.log(`🔄 Lead ${dealIdStr} - Stage atualizado para: ${stageName}`);
         }
+        res.status(200).json({ 
+          success: true, 
+          message: 'Lead atualizado',
+          lead: existingLead 
+        });
+        return;
+      }
+      
+      // Se estava em etapa válida e agora está em etapa inválida → MARCAR COMO INVALIDO
+      const wasInValidStage = existingLead.stage_name && isValidSDRStage(existingLead.stage_name);
+      if (wasInValidStage && !isValidSDRStage(stageName)) {
+        console.log(`⚠️ Lead ${dealIdStr} saiu da etapa válida "${existingLead.stage_name}" para etapa inválida "${stageName}". Marcando como INVALIDO.`);
+        
+        await updateLeadStatus(dealIdStr, 'INVALIDO');
+        res.status(200).json({ 
+          success: true, 
+          message: `Lead marcado como INVALIDO - saiu das etapas contabilizadas`
+        });
+        return;
       }
       
       // Se não estava em etapa válida antes, apenas ignorar
-      console.log(`⏭️ Lead ${dealIdStr} movido para etapa "${stageName}" não válida. Ignorando.`);
+      console.log(`⏭️ Lead ${dealIdStr} em etapa "${stageName}" não válida. Ignorando.`);
       res.status(200).json({ 
         success: true, 
         message: `Etapa "${stageName}" não é contabilizada. Ignorado.`
       });
       return;
     }
+    
+    // Se não é nem pipeline principal nem pipeline específica CLOSER → IGNORAR
+    console.log(`⏭️ Pipeline ${pipelineId} não é relevante. Ignorando.`);
+    res.status(200).json({ 
+      success: true, 
+      message: 'Pipeline não é relevante. Ignorado.'
+    });
+    return;
 
     console.log(`ℹ️ Lead ${dealIdStr} - nenhuma ação necessária`);
     res.status(200).json({ 

@@ -15,3 +15,4 @@ CREATE INDEX IF NOT EXISTS idx_leads_sla_status ON leads_sla(status);
 COMMENT ON COLUMN leads_sla.status IS 'Status do lead no Pipedrive (lost, open, won)';
 
 
+
