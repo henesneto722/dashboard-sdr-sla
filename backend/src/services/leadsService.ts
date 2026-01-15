@@ -582,17 +582,39 @@ export async function getHourlyPerformance(): Promise<HourlyPerformance[]> {
 /**
  * GET /leads/today-attended - Leads atendidos hoje (independente de quando foram criados)
  * Usa attended_at para filtrar, não entered_at
+ * 
+ * REGRA: Acúmulo Diário (Dia Civil em São Paulo)
+ * - Início: 00:00:00 do dia atual em São Paulo
+ * - Fim: 23:59:59 do dia atual em São Paulo
+ * - Reset: À meia-noite de São Paulo, os dados zeram automaticamente
  */
 export async function getTodayAttendedLeads(): Promise<LeadSLA[]> {
-  // Início do dia atual (00:00:00)
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayStartISO = todayStart.toISOString();
+  // Obter data atual em timezone de São Paulo
+  const now = new Date();
   
-  // Fim do dia atual (23:59:59)
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
-  const todayEndISO = todayEnd.toISOString();
+  // Formatar data atual em São Paulo para obter componentes
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  
+  const parts = formatter.formatToParts(now);
+  const year = parseInt(parts.find(p => p.type === 'year')!.value);
+  const month = parseInt(parts.find(p => p.type === 'month')!.value) - 1; // 0-indexed
+  const day = parseInt(parts.find(p => p.type === 'day')!.value);
+  
+  // Criar início do dia em São Paulo (00:00:00)
+  // Usar Date.UTC e depois ajustar para o offset de São Paulo
+  // São Paulo está UTC-3 (padrão), então 00:00 SP = 03:00 UTC
+  const todayStartUTC = new Date(Date.UTC(year, month, day, 3, 0, 0, 0));
+  const todayStartISO = todayStartUTC.toISOString();
+  
+  // Criar fim do dia em São Paulo (23:59:59.999)
+  // 23:59:59.999 SP = 02:59:59.999 UTC do dia seguinte
+  const todayEndUTC = new Date(Date.UTC(year, month, day + 1, 2, 59, 59, 999));
+  const todayEndISO = todayEndUTC.toISOString();
 
   const { data: leads, error } = await supabase
     .from('leads_sla')
