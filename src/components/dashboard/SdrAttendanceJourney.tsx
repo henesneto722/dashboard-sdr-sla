@@ -482,7 +482,14 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
 
   // Calcular estatísticas gerais
   const totalSDRs = new Set(metrics.map(m => m.sdr_id)).size;
-  const totalActions = metrics.reduce((sum, m) => sum + m.total_actions, 0);
+  
+  // Filtrar métricas apenas do dia atual para o card "Atendidos Hoje"
+  // Contar apenas deals únicos atendidos HOJE (primeiro atendimento de cada deal hoje)
+  const todayInSaoPaulo = getTodayInSaoPaulo();
+  const todayString = format(todayInSaoPaulo, 'yyyy-MM-dd');
+  const todayMetrics = metrics.filter(m => m.date === todayString);
+  const totalActions = todayMetrics.reduce((sum, m) => sum + m.total_actions, 0);
+  
   const totalDays = new Set(metrics.map(m => m.date)).size;
 
   return (

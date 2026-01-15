@@ -607,7 +607,17 @@ export async function getTodayAttendedLeads(): Promise<LeadSLA[]> {
     throw new Error(`Erro ao buscar leads atendidos hoje: ${error.message}`);
   }
 
-  return leads || [];
+  // Garantir que retornamos apenas deals únicos (remover duplicatas por lead_id)
+  // Cada deal só pode ter um primeiro atendimento, então não deveria haver duplicatas,
+  // mas garantimos para evitar problemas
+  const uniqueLeads = new Map<string, LeadSLA>();
+  (leads || []).forEach(lead => {
+    if (lead.lead_id && !uniqueLeads.has(lead.lead_id)) {
+      uniqueLeads.set(lead.lead_id, lead);
+    }
+  });
+
+  return Array.from(uniqueLeads.values());
 }
 
 /**
