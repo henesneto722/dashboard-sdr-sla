@@ -139,7 +139,7 @@ export const SDRRanking = ({ onMonthlyRankingChange }: SDRRankingProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
-            Ranking de Performance - SDRs
+            Ranking de Performance
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -157,7 +157,7 @@ export const SDRRanking = ({ onMonthlyRankingChange }: SDRRankingProps) => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Trophy className="h-5 w-5 text-primary" />
-            Ranking de Performance - SDRs
+            Ranking de Performance
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -174,7 +174,7 @@ export const SDRRanking = ({ onMonthlyRankingChange }: SDRRankingProps) => {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Trophy className="h-5 w-5 text-primary" />
-          Ranking de Performance - SDRs
+          Ranking de Performance
         </CardTitle>
         <p className="text-xs text-muted-foreground mt-2">
           💡 Conta <strong>leads únicos atendidos</strong>. Diferente da Jornada que conta <strong>ações/movimentações</strong>.

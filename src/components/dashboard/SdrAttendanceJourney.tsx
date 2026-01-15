@@ -411,14 +411,14 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
             <div className="bg-muted/30 rounded-lg p-3 border border-border">
               <div className="flex items-center gap-2 mb-1">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">SDRs Ativos</span>
+                <span className="text-xs text-muted-foreground">Colaboradores Ativos</span>
               </div>
               <p className="text-2xl font-bold text-foreground">0</p>
             </div>
             <div className="bg-muted/30 rounded-lg p-3 border border-border">
               <div className="flex items-center gap-2 mb-1">
                 <Activity className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Total de Ações</span>
+                <span className="text-xs text-muted-foreground">Atendidos Hoje</span>
               </div>
               <p className="text-2xl font-bold text-foreground">0</p>
             </div>
@@ -575,14 +575,14 @@ export const SdrAttendanceJourney = ({ sdrId, date: initialDate }: SdrAttendance
           <div className="bg-muted/30 rounded-lg p-3 border border-border">
             <div className="flex items-center gap-2 mb-1">
               <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">SDRs Ativos</span>
+              <span className="text-xs text-muted-foreground">Colaboradores Ativos</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{totalSDRs}</p>
           </div>
           <div className="bg-muted/30 rounded-lg p-3 border border-border">
             <div className="flex items-center gap-2 mb-1">
               <Activity className="h-4 w-4 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Total de Ações</span>
+              <span className="text-xs text-muted-foreground">Atendidos Hoje</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{totalActions}</p>
           </div>

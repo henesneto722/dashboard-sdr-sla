@@ -49,7 +49,7 @@ export const DashboardFilters = ({
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">SDR</label>
+            <label className="text-sm font-medium mb-2 block">Colaborador</label>
             <Select value={selectedSDR} onValueChange={onSDRChange}>
               <SelectTrigger>
                 <SelectValue />
