@@ -29,6 +29,10 @@ const VALID_SDR_STAGES = [
   'fabio finalizou',
 ];
 
+// Etapa especial que marca como atendido mesmo no pipeline principal SDR
+// Usada nas pipelines específicas CLOSER - NOME
+const ATTENDED_STAGE_IN_CLOSER_PIPELINE = 'sdr menor perfil';
+
 // Verifica se uma etapa é válida para contabilização no funil principal "SDR"
 function isValidSDRStage(stageName: string | null): boolean {
   if (!stageName) {
@@ -39,6 +43,14 @@ function isValidSDRStage(stageName: string | null): boolean {
   const isValid = VALID_SDR_STAGES.some(valid => normalized.includes(valid));
   console.log(`🔍 isValidSDRStage: "${stageName}" → "${normalized}" → válido: ${isValid}`);
   return isValid;
+}
+
+// Verifica se uma etapa marca como atendido (mesmo no pipeline principal)
+// Usado para etapas especiais como "SDR Menor Perfil" nas pipelines específicas CLOSER
+function isAttendedStage(stageName: string | null): boolean {
+  if (!stageName) return false;
+  const normalized = stageName.toLowerCase().trim();
+  return normalized.includes(ATTENDED_STAGE_IN_CLOSER_PIPELINE);
 }
 
 import { Request, Response } from 'express';
@@ -214,7 +226,8 @@ async function handleDealAdded(
     const dealIdStr = dealId.toString();
     
     // Se está no funil principal "SDR", verificar se a etapa é válida
-    if (isMainPipeline && !isValidSDRStage(stageName)) {
+    // EXCETO se for a etapa especial "SDR Menor Perfil" que marca como atendido
+    if (isMainPipeline && !isValidSDRStage(stageName) && !isAttendedStage(stageName)) {
       console.log(`⏭️ Deal ${dealIdStr} em etapa "${stageName}" não válida. Ignorando.`);
       res.status(200).json({ 
         success: true, 
@@ -235,10 +248,11 @@ async function handleDealAdded(
       return;
     }
 
-    // Se está no funil individual CLOSER, marcar como atendido (qualquer etapa)
+    // Se está no funil individual CLOSER OU na etapa especial "SDR Menor Perfil", marcar como atendido
     let isAttended = false;
-    if (isIndividualPipeline) {
+    if (isIndividualPipeline || isAttendedStage(stageName)) {
       // IMPORTANTE: Qualquer etapa em pipeline específica válida conta como atendido
+      // OU etapa especial "SDR Menor Perfil" também conta como atendido
       isAttended = true;
     }
     
@@ -254,13 +268,14 @@ async function handleDealAdded(
       status: dealStatus, // Status do Pipedrive (lost, open, won)
     };
 
-    // Se está no funil individual CLOSER, marcar como atendido
+    // Se está no funil individual CLOSER OU na etapa especial "SDR Menor Perfil", marcar como atendido
     if (isAttended) {
       leadData.sdr_id = pipelineId.toString();
       leadData.sdr_name = sdrName;
       leadData.attended_at = updateTime;
       
       // Registrar evento de atendimento APENAS quando lead é criado já no pipeline individual CLOSER
+      // OU quando criado na etapa especial "SDR Menor Perfil"
       // Isso significa que o Closer pegou o lead diretamente (sem passar pelo pipeline principal)
       if (userId) {
         try {
@@ -275,11 +290,12 @@ async function handleDealAdded(
             metadata: {
               action: 'added',
               is_attended: true,
-              is_main_pipeline: false,
-              source: 'individual_pipeline_direct',
+              is_main_pipeline: isMainPipeline && isAttendedStage(stageName),
+              source: isAttendedStage(stageName) ? 'special_stage_sdr_menor_perfil' : 'individual_pipeline_direct',
+              stage_special: isAttendedStage(stageName) ? 'SDR Menor Perfil' : null,
             },
           });
-          console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr}) - Criado já atendido`);
+          console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr}) - Criado já atendido${isAttendedStage(stageName) ? ' - Etapa especial SDR Menor Perfil' : ''}`);
         } catch (error) {
           console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
         }
@@ -347,7 +363,8 @@ async function handleDealUpdated(
       // Lead não existe
       
       // Se está no funil principal "SDR", verificar se a etapa é válida
-      if (isMainPipeline && !isValidSDRStage(stageName)) {
+      // EXCETO se for a etapa especial "SDR Menor Perfil" que marca como atendido
+      if (isMainPipeline && !isValidSDRStage(stageName) && !isAttendedStage(stageName)) {
         console.log(`⏭️ Deal ${dealIdStr} em etapa "${stageName}" não válida. Ignorando.`);
         res.status(200).json({ 
           success: true, 
@@ -358,10 +375,11 @@ async function handleDealUpdated(
       
       console.log(`Lead ${dealIdStr} não encontrado. Criando...`);
       
-      // Se está no funil individual CLOSER, marcar como atendido (qualquer etapa)
+      // Se está no funil individual CLOSER OU na etapa especial "SDR Menor Perfil", marcar como atendido
       let isAttended = false;
-      if (isIndividualPipeline) {
+      if (isIndividualPipeline || isAttendedStage(stageName)) {
         // IMPORTANTE: Qualquer etapa em pipeline específica válida conta como atendido
+        // OU etapa especial "SDR Menor Perfil" também conta como atendido
         isAttended = true;
       }
       
@@ -382,7 +400,8 @@ async function handleDealUpdated(
         leadData.attended_at = updateTime;
         
         // Registrar evento de atendimento APENAS quando lead é criado já atendido (pipeline individual CLOSER)
-        // Isso significa que o Closer pegou o lead diretamente do pipeline individual
+        // OU quando criado na etapa especial "SDR Menor Perfil"
+        // Isso significa que o Closer pegou o lead diretamente do pipeline individual ou etapa especial
         if (userId) {
           try {
             await createAttendanceEvent({
@@ -396,11 +415,12 @@ async function handleDealUpdated(
               metadata: {
                 action: 'added',
                 is_attended: true,
-                is_main_pipeline: false,
-                source: 'individual_pipeline',
+                is_main_pipeline: isMainPipeline && isAttendedStage(stageName),
+                source: isAttendedStage(stageName) ? 'special_stage_sdr_menor_perfil' : 'individual_pipeline',
+                stage_special: isAttendedStage(stageName) ? 'SDR Menor Perfil' : null,
               },
             });
-            console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr}) - Criado já atendido`);
+            console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr}) - Criado já atendido${isAttendedStage(stageName) ? ' - Etapa especial SDR Menor Perfil' : ''}`);
           } catch (error) {
             console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
           }
@@ -432,8 +452,10 @@ async function handleDealUpdated(
     // Lead existe e ainda NÃO foi atendido
     
     // Se agora está em um funil individual CLOSER, marcar como atendido (qualquer etapa)
-    if (isIndividualPipeline) {
+    // OU se está na etapa especial "SDR Menor Perfil" (mesmo no pipeline principal)
+    if (isIndividualPipeline || isAttendedStage(stageName)) {
       // IMPORTANTE: Qualquer etapa em pipeline específica válida conta como atendido
+      // OU etapa especial "SDR Menor Perfil" também conta como atendido
       const updatedLead = await attendLead(
         dealIdStr,
         pipelineId.toString(),
@@ -455,19 +477,20 @@ async function handleDealUpdated(
             metadata: {
               action: 'updated',
               is_attended: true,
-              is_main_pipeline: false,
+              is_main_pipeline: isMainPipeline && isAttendedStage(stageName),
+              stage_special: isAttendedStage(stageName) ? 'SDR Menor Perfil' : null,
             },
           });
-          console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr})`);
+          console.log(`📝 Evento de atendimento registrado para Closer ${userId} (deal ${dealIdStr})${isAttendedStage(stageName) ? ' - Etapa especial SDR Menor Perfil' : ''}`);
         } catch (error) {
           console.warn('⚠️ Erro ao registrar evento de atendimento (não crítico):', error);
         }
       }
 
-      console.log(`✅ Lead ${dealIdStr} ATENDIDO por ${sdrName} - SLA calculado!`);
+      console.log(`✅ Lead ${dealIdStr} ATENDIDO por ${sdrName} - SLA calculado!${isAttendedStage(stageName) ? ' (Etapa especial: SDR Menor Perfil)' : ''}`);
       res.status(200).json({ 
         success: true, 
-        message: `Lead atendido por ${sdrName}`,
+        message: `Lead atendido por ${sdrName}${isAttendedStage(stageName) ? ' - Etapa SDR Menor Perfil' : ''}`,
         lead: updatedLead 
       });
       return;
