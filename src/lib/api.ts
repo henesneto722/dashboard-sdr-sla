@@ -179,9 +179,7 @@ export interface SdrDailyMetrics {
     action_count: number;
   };
   total_actions: number;
-}
-
-/**
+}/**
  * Busca jornada de atendimento dos SDRs
  */
 export async function fetchSdrAttendance(filters?: {
@@ -194,9 +192,7 @@ export async function fetchSdrAttendance(filters?: {
   if (filters?.sdr_id) params.append('sdr_id', filters.sdr_id);
   if (filters?.date) params.append('date', filters.date);
   if (filters?.start_date) params.append('start_date', filters.start_date);
-  if (filters?.end_date) params.append('end_date', filters.end_date);
-
-  const url = `${API_BASE_URL}/api/metrics/sdr-attendance${params.toString() ? `?${params.toString()}` : ''}`;
+  if (filters?.end_date) params.append('end_date', filters.end_date);  const url = `${API_BASE_URL}/api/metrics/sdr-attendance${params.toString() ? `?${params.toString()}` : ''}`;
   const response = await fetch(url);
   const json: ApiResponse<SdrDailyMetrics[]> = await response.json();
   return json.data;

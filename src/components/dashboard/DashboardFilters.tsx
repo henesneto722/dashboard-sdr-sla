@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Filter } from "lucide-react";
+import { Filter, Download } from "lucide-react";
 
 interface DashboardFiltersProps {
   selectedPeriod: string;
@@ -15,6 +15,7 @@ interface DashboardFiltersProps {
   selectedSDR: string;
   onSDRChange: (sdr: string) => void;
   sdrs: string[];
+  onExport?: () => void;
 }
 
 export const DashboardFilters = ({
@@ -23,13 +24,26 @@ export const DashboardFilters = ({
   selectedSDR,
   onSDRChange,
   sdrs,
+  onExport,
 }: DashboardFiltersProps) => {
   return (
     <Card className="mb-8 border-primary/20">
       <CardContent className="p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Filter className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold text-lg">Filtros</h3>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold text-lg">Filtros</h3>
+          </div>
+          {onExport && (
+            <Button
+              onClick={onExport}
+              variant="outline"
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Exportar Excel
+            </Button>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>

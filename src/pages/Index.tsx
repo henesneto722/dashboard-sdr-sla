@@ -16,6 +16,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationHistory } from "@/components/notifications/NotificationHistory";
 import { NotificationToaster } from "@/components/notifications/NotificationToaster";
 import { useNotifications } from "@/hooks/useNotifications";
+import { exportToExcel } from "@/lib/exportToExcel";
+import { useQuery } from "@tanstack/react-query";
+import { fetchTodayAttendedLeads, fetchAllPendingLeads, fetchSDRRanking } from "@/lib/api";
 
 // Interface para SDR com id e nome
 interface SDRInfo {
@@ -154,6 +157,22 @@ const Index = () => {
   // Estado para armazenar ranking mensal (vindo do componente SDRRanking)
   const [monthlyRanking, setMonthlyRanking] = useState<SDRPerformance[]>([]);
 
+  // Buscar dados para exportação
+  const { data: todayAttendedLeads = [] } = useQuery({
+    queryKey: ['today-attended-leads'],
+    queryFn: fetchTodayAttendedLeads,
+  });
+
+  const { data: allPendingData } = useQuery({
+    queryKey: ['all-pending-leads'],
+    queryFn: fetchAllPendingLeads,
+  });
+
+  const { data: rankingData = [] } = useQuery({
+    queryKey: ['sdr-ranking'],
+    queryFn: fetchSDRRanking,
+  });
+
   // Lista única de SDRs (nomes para exibição)
   const uniqueSDRs = useMemo((): string[] => {
     if (sdrsInfo.length > 0) {
@@ -162,6 +181,29 @@ const Index = () => {
     // Fallback: extrair dos leads
     return Array.from(new Set(allLeads.map((l) => l.sdr_name).filter(Boolean)));
   }, [allLeads, sdrsInfo]);
+
+  // Função para exportar dados para Excel
+  const handleExport = useCallback(() => {
+    const attendedLeads = filteredLeads.filter(l => l.sla_minutes !== null);
+    const averageTime = attendedLeads.length > 0
+      ? Math.round(attendedLeads.reduce((sum, l) => sum + (l.sla_minutes || 0), 0) / attendedLeads.length)
+      : 0;
+    const worstTime = attendedLeads.length > 0
+      ? Math.max(...attendedLeads.map(l => l.sla_minutes || 0))
+      : 0;
+
+    const metrics = {
+      averageTime,
+      worstTime,
+      todayLeads: todayAttendedLeads.length,
+      pendingCount: allPendingData?.count || 0,
+    };
+
+    // Usar ranking mensal se disponível, senão usar ranking geral
+    const rankingToExport = monthlyRanking.length > 0 ? monthlyRanking : rankingData;
+
+    exportToExcel(filteredLeads, rankingToExport, metrics);
+  }, [filteredLeads, monthlyRanking, rankingData, todayAttendedLeads, allPendingData]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -251,6 +293,7 @@ const Index = () => {
               selectedSDR={selectedSDR}
               onSDRChange={setSelectedSDR}
               sdrs={uniqueSDRs}
+              onExport={handleExport}
             />
 
             {allLeads.length === 0 && !error ? (
